@@ -16,7 +16,7 @@ try:
     data = cargar_modelo()
     model = data["modelo"]
     preprocessor = data["preprocesador"]
-    threshold = data["umbral_optimo"]
+    threshold = 0.35
     st.success("✅ Sistema de IA cargado correctamente.")
 except FileNotFoundError:
     st.error("❌ No se encuentra 'modelo_fraude_v1.pkl'. Asegúrate de que esté en la misma carpeta.")
