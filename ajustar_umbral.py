@@ -4,7 +4,7 @@ from sklearn.metrics import precision_recall_curve, f1_score, confusion_matrix
 
 # 1. Cargar lo que ya entrenaste
 try:
-    data = joblib.load('modelo_fraude_v1.pkl')
+    data = joblib.load('modelo_fraude_final.pkl')
     model = data["modelo"]
     preprocessor = data["preprocesador"]
     
