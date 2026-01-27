@@ -6,8 +6,8 @@ WORKDIR /app
 
 # 3. Copiamos los archivos necesarios
 COPY requirements.txt .
-COPY app.py .
-COPY modelo_fraude_v1.pkl .
+COPY App.py .
+COPY modelo_fraude_final.pkl .
 
 # 4. Instalamos dependencias
 # (Añadimos build-essential para compilar algunas librerías si hace falta)
