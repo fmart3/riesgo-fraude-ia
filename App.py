@@ -22,10 +22,10 @@ st.markdown("""
 @st.cache_resource
 def cargar_modelo():
     try:
-        data = joblib.load('modelo_fraude_v1.pkl')
+        data = joblib.load('modelo_fraude_final.pkl')
         return data
     except FileNotFoundError:
-        st.error("❌ No se encuentra 'modelo_fraude_v1.pkl'.")
+        st.error("❌ No se encuentra 'modelo_fraude_final.pkl'.")
         return None
 
 data = cargar_modelo()
@@ -44,7 +44,7 @@ if data:
     with st.sidebar.form("fraude_form"):
         amount = st.number_input("Monto ($)", min_value=0.0, value=150.0)
         hour = st.slider("Hora (0-23)", 0, 23, 14)
-        risk_score = st.slider("Risk Score Interno", 0, 100, 20)
+        #risk_score = st.slider("Risk Score Interno", 0, 100, 20)
         
         st.markdown("---")
         trans_type = st.selectbox("Tipo Transacción", ['Online Purchase', 'ATM Withdrawal', 'POS Purchase', 'Bank Transfer'])
@@ -64,7 +64,7 @@ if data:
             'transaction_type': [trans_type],
             'account_age': [account_age],
             'customer_segment': [customer_segment],
-            'risk_score': [risk_score],
+            #'risk_score': [risk_score],
             'hour': [hour]
         })
 
