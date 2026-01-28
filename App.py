@@ -22,7 +22,7 @@ st.markdown("""
 @st.cache_resource
 def cargar_modelo():
     try:
-        data = joblib.load('modelo_fraude_final.pkl')
+        data = joblib.load('modelo_fraude_v1.pkl')
         return data
     except FileNotFoundError:
         st.error("❌ No se encuentra 'modelo_fraude_final.pkl'. Asegúrate de que esté en la misma carpeta.")
