@@ -4,15 +4,9 @@ import numpy as np
 import joblib
 import plotly.graph_objects as go
 
-# --- 1. CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(
-    page_title="FraudGuard AI",
-    page_icon="🛡️",
-    layout="wide"
-)
+# --- 1. CONFIGURACIÓN ---
+st.set_page_config(page_title="FraudGuard AI", page_icon="🛡️", layout="wide")
 
-# --- 2. ESTILOS CSS (CORREGIDO) ---
-# Se fuerza el color de texto a negro en los botones para contraste
 st.markdown("""
     <style>
     .main { background-color: #f5f7f9; }
@@ -23,82 +17,67 @@ st.markdown("""
         width: 100%;
         height: 60px;
         font-size: 20px;
+        border-radius: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. CARGAR MODELO ---
+# --- 2. CARGAR MODELO ---
 @st.cache_resource
 def cargar_modelo():
     try:
-        artefactos = joblib.load('modelo_fraude_final.pkl')
-        return artefactos
+        # Asegúrate de que este archivo sea el NUEVO que re-entrenaste
+        return joblib.load('modelo_fraude_final.pkl')
     except FileNotFoundError:
-        st.error("⚠️ No se encuentra el archivo 'modelo_fraude_final.pkl'.")
+        st.error("⚠️ Falta el archivo 'modelo_fraude_final.pkl'.")
         return None
 
 data = cargar_modelo()
 
-# --- 4. FUNCIONES DE LÓGICA (MODULARIZADAS) ---
-
+# --- 3. CÁLCULOS INTERNOS (BACKEND SIMULADO) ---
 def analizar_contexto_hora(hour, transaction_type):
-    """Calcular penalización por hora y tipo."""
     penalizacion = 0
     es_noche = (hour >= 21) or (hour <= 6)
     es_madrugada = (0 <= hour <= 5)
 
-    if transaction_type == 'ATM Withdrawal':
-        if es_noche:
-            penalizacion += 30  # 🚨 ATM de noche
-    elif transaction_type == 'Online Purchase':
-        if es_madrugada:
-            penalizacion += 15  # ⚠️ Compra madrugada
-    elif transaction_type == 'POS Purchase':
-        if es_madrugada:
-            penalizacion += 10
-            
+    if transaction_type == 'ATM Withdrawal' and es_noche:
+        penalizacion += 30
+    elif transaction_type == 'Online Purchase' and es_madrugada:
+        penalizacion += 15
+    elif transaction_type == 'POS Purchase' and es_madrugada:
+        penalizacion += 10
     return penalizacion
 
 def simular_risk_score(amount, account_age_years, hour, transaction_type):
-    """Calculadora del Risk Score Simulado (Backend)."""
+    """Calcula el score internamente sin mostrarlo."""
     base_score = 50
-    
-    # 1. Contexto Hora/Tipo
     base_score += analizar_contexto_hora(hour, transaction_type)
     
-    # 2. Antigüedad
     if account_age_years < 0.5: base_score += 25
     elif account_age_years < 1.0: base_score += 15
     elif account_age_years > 5.0: base_score -= 10
         
-    # 3. Montos
     if amount > 1000: base_score += 15
     if amount > 5000: base_score += 20
         
-    # Limitar estrictamente entre 0 y 100
     return int(min(max(base_score, 0), 100))
 
-# --- 5. INTERFAZ GRÁFICA ---
-st.title("🛡️ FraudGuard AI: Monitor de Transacciones")
+# --- 4. INTERFAZ ---
+st.title("🛡️ FraudGuard AI")
+st.markdown("### Monitor de Seguridad Transaccional")
 
 if data:
     modelo = data['modelo']
     preprocessor = data['preprocesador']
     umbral_sugerido = data.get('umbral_optimo', 0.5)
 
-    # BARRA LATERAL
-    st.sidebar.header("⚙️ Configuración")
-    umbral_usuario = st.sidebar.slider(
-        "Sensibilidad (Umbral)", 
-        0.0, 1.0, float(umbral_sugerido), 0.01
-    )
-    st.sidebar.info(f"Umbral IA Sugerido: **{umbral_sugerido:.2f}**")
+    st.sidebar.header("⚙️ Ajuste de Sensibilidad")
+    umbral_usuario = st.sidebar.slider("Nivel de Estrictez", 0.0, 1.0, float(umbral_sugerido), 0.01)
 
-    # COLUMNAS PRINCIPALES
     col1, col2 = st.columns([1, 2])
 
     with col1:
-        st.subheader("📝 Datos de Operación")
+        st.write("#### 📝 Detalles de la Operación")
         
         amount = st.number_input("Monto ($)", min_value=0.0, value=150.0, step=10.0)
         
@@ -107,78 +86,69 @@ if data:
             min_value=0.0, max_value=100.0, value=2.0, step=0.1, format="%.1f"
         )
         
-        hour = st.slider("Hora (0-23h)", 0, 23, 22) # Default 22 para probar ATM nocturno
+        hour = st.slider("Hora (0-23h)", 0, 23, 22)
         
-        # Strings exactos del entrenamiento
         transaction_type = st.selectbox("Tipo de Movimiento", 
                                         ['Online Purchase', 'Bank Transfer', 'ATM Withdrawal', 'POS Purchase'])
         
         customer_segment = st.selectbox("Segmento Cliente", 
                                         ['Retail', 'Business', 'Corporate'])
         
-        gender = st.selectbox("Género", ['M', 'F'])
+        # ELIMINADO: Ya no pedimos ni simulamos el Género.
 
     with col2:
-        st.subheader("🔍 Análisis en Tiempo Real")
+        st.write("#### 🔍 Resultado del Análisis")
+        st.write("") 
         
-        # Botón de acción
-        if st.button("ANALIZAR AHORA"):
+        if st.button("ANALIZAR RIESGO"):
             
-            # 1. Calcular Risk Score
-            risk_score_calculado = simular_risk_score(amount, account_age, hour, transaction_type)
+            # 1. Cálculo silencioso del Risk Score
+            risk_score_interno = simular_risk_score(amount, account_age, hour, transaction_type)
             
-            # 2. MOSTRAR RESULTADO DEL BACKEND (Usando st.metric nativo para evitar error visual)
-            # Creamos 3 columnas pequeñas para mostrar los datos calculados limpiamente
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Risk Score (Backend)", f"{risk_score_calculado}/100", delta_color="inverse")
-            m2.metric("Hora Detectada", f"{hour}:00 hrs")
-            m3.metric("Tipo", transaction_type)
-
-            # Mensaje explicativo si el riesgo es alto por lógica interna
-            if risk_score_calculado > 80:
-                st.warning("⚠️ **Nota:** El sistema interno ha elevado el riesgo debido a la hora y tipo de transacción.")
-
-            st.divider() # Línea divisoria visual
-
-            # 3. Prepara DataFrame para la IA
+            # 2. Armar datos (SIN GÉNERO)
+            # Verifica que estas columnas coincidan 100% con tu X_train del Colab
             input_data = pd.DataFrame({
                 'amount': [amount],
                 'account_age': [account_age],
-                'risk_score': [risk_score_calculado],
+                'risk_score': [risk_score_interno],
                 'hour': [hour],
                 'transaction_type': [transaction_type],
-                'customer_segment': [customer_segment],
-                'gender': [gender]
+                'customer_segment': [customer_segment]
+                # 'gender': ELIMINADO TOTALMENTE
             })
 
-            # 4. Predicción IA
             try:
+                # 3. Predicción
                 input_processed = preprocessor.transform(input_data)
                 probabilidad = modelo.predict_proba(input_processed)[0, 1]
                 es_fraude = probabilidad >= umbral_usuario
 
-                # 5. Gráfico Gauge
+                # 4. Visualización
                 fig = go.Figure(go.Indicator(
                     mode = "gauge+number",
                     value = probabilidad * 100,
-                    title = {'text': "Probabilidad de Fraude (%)"},
+                    title = {'text': "Probabilidad de Fraude Detectada"},
                     gauge = {
                         'axis': {'range': [0, 100]},
-                        'bar': {'color': "darkred" if es_fraude else "green"},
+                        'bar': {'color': "darkred" if es_fraude else "#00CC96"},
                         'steps': [
-                            {'range': [0, umbral_usuario*100], 'color': "lightgreen"},
-                            {'range': [umbral_usuario*100, 100], 'color': "salmon"}
+                            {'range': [0, umbral_usuario*100], 'color': "#E5F5F9"}, 
+                            {'range': [umbral_usuario*100, 100], 'color': "#FFE4E1"} 
                         ],
                         'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': umbral_usuario * 100}
                     }
                 ))
+                fig.update_layout(margin=dict(l=20, r=20, t=50, b=20))
                 st.plotly_chart(fig, use_container_width=True)
 
-                # Veredicto Final
                 if es_fraude:
-                    st.error("🚨 TRANSACCIÓN BLOQUEADA")
+                    st.error(f"🚨 **TRANSACCIÓN BLOQUEADA**")
+                    st.markdown(f"Se recomienda verificación de identidad.")
                 else:
-                    st.success("✅ TRANSACCIÓN APROBADA")
+                    st.success(f"✅ **APROBADA**")
+                    st.markdown(f"Operación dentro de los parámetros normales.")
 
             except Exception as e:
-                st.error(f"Error técnico: {e}")
+                st.error("Error en el procesamiento.")
+                st.info("Posible causa: ¿Subiste el archivo .pkl nuevo a la carpeta?")
+                st.caption(f"Error técnico: {e}")
