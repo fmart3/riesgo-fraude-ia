@@ -101,10 +101,9 @@ if data:
         hour = st.slider("Hora (0-23h)", 0, 23, 14)
         
         transaction_type = st.selectbox("Tipo de Movimiento", 
-                                        ['purchase', 'transfer', 'withdrawal', 'payment'])
+                                        ['Online Purchase', 'Bank Transfer', 'ATM Withdrawal', 'POS Purchase'])
         customer_segment = st.selectbox("Segmento Cliente", 
-                                        ['low', 'medium', 'high'])
-        gender = st.selectbox("Género", ['M', 'F'])
+                                        ['Retail', 'Business', 'Corporate'])
 
     with col2:
         st.subheader("🔍 Análisis en Tiempo Real")
@@ -122,8 +121,7 @@ if data:
                 'risk_score': [risk_score_calculado],
                 'hour': [hour],
                 'transaction_type': [transaction_type],
-                'customer_segment': [customer_segment],
-                'gender': [gender]
+                'customer_segment': [customer_segment]
             })
 
             # 3. Predicción
