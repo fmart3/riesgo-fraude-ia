@@ -35,87 +35,82 @@ def cargar_modelo():
 
 data = cargar_modelo()
 
-# --- 3. LÓGICA DE NEGOCIO (BACKEND) ---
+# --- 3. LÓGICA DE NEGOCIO (BACKEND REFORZADO) ---
 def analizar_contexto_hora(hour, transaction_type):
     penalizacion = 0
+    # Definimos noche cerrada
     es_noche = (hour >= 21) or (hour <= 6)
     es_madrugada = (0 <= hour <= 5)
 
-    if transaction_type == 'ATM Withdrawal' and es_noche:
-        penalizacion += 30
+    if transaction_type == 'ATM Withdrawal':
+        if es_noche:
+            # 🚨 AUMENTAMOS LA PENALIZACIÓN (Antes 30 -> Ahora 45)
+            # Esto hará que el Risk Score suba mucho más y el modelo reaccione.
+            penalizacion += 45  
+    
     elif transaction_type == 'Online Purchase' and es_madrugada:
-        penalizacion += 15
+        penalizacion += 20  # Aumentado levemente
+        
     elif transaction_type == 'POS Purchase' and es_madrugada:
-        penalizacion += 10
+        penalizacion += 15
+
     return penalizacion
 
 def simular_risk_score(amount, account_age_years, hour, transaction_type):
     base_score = 50
     base_score += analizar_contexto_hora(hour, transaction_type)
     
+    # Cuentas nuevas
     if account_age_years < 0.5: base_score += 25
     elif account_age_years < 1.0: base_score += 15
     elif account_age_years > 5.0: base_score -= 10
-        
+    
+    # Montos
     if amount > 1000: base_score += 15
     if amount > 5000: base_score += 20
         
     return int(min(max(base_score, 0), 100))
 
-# --- 4. FUNCIÓN SHAP (FILTRADA Y LIMPIA) ---
+# --- 4. FUNCIÓN SHAP (FILTRADO INTELIGENTE) ---
 def mostrar_explicacion_shap(modelo, preprocessor, input_df):
-    """
-    Genera un gráfico Waterfall filtrando las categorías que valen 0.
-    """
     try:
-        # A. Transformar datos
         X_processed = preprocessor.transform(input_df)
         
-        # B. Obtener nombres de columnas
         try:
             feature_names = preprocessor.get_feature_names_out()
         except:
             feature_names = [f"Feature {i}" for i in range(X_processed.shape[1])]
 
-        # C. Calcular valores SHAP
         explainer = shap.TreeExplainer(modelo)
         shap_values = explainer(X_processed)
-        
-        # Asignar nombres al objeto SHAP
         shap_values.feature_names = feature_names
         
-        # --- LÓGICA DE FILTRADO ---
-        # Obtenemos la explicación para la única fila que tenemos (índice 0)
         single_shap = shap_values[0]
         
         indices_a_mostrar = []
+        # Variables numéricas que SIEMPRE queremos ver
         nombres_numericos = ['amount', 'account_age', 'risk_score', 'hour']
         
-        # Recorremos cada variable para decidir si la mostramos
         for i, nombre_columna in enumerate(feature_names):
-            valor_input = single_shap.data[i] # El valor real (0 o 1 en categorías)
+            valor_input = single_shap.data[i]
             
-            # Condición 1: Es numérica? (Siempre mostramos numéricas)
-            # Buscamos si el nombre limpio está dentro del nombre de la columna (ej: "amount" en "scaler__amount")
+            # Chequeamos si es numérica mirando el nombre de la columna
             es_numerica = any(num in nombre_columna for num in nombres_numericos)
             
-            # Condición 2: Es una categoría activa? (Valor cercano a 1)
-            # En OneHotEncoding, si vale > 0.5 es que está presente.
+            # Chequeamos si es una categoría activa (valor > 0)
             es_categoria_activa = abs(valor_input) > 0.01 
             
             if es_numerica or es_categoria_activa:
                 indices_a_mostrar.append(i)
         
-        # D. Crear un nuevo objeto SHAP solo con las columnas filtradas
         shap_filtrado = single_shap[indices_a_mostrar]
         
-        # E. Graficar
         fig, ax = plt.subplots(figsize=(9, 5))
         shap.plots.waterfall(shap_filtrado, max_display=10, show=False)
         st.pyplot(fig)
         
     except Exception as e:
-        st.warning(f"No se pudo generar el gráfico SHAP: {e}")
+        st.warning(f"No se pudo generar SHAP: {e}")
 
 # --- 5. INTERFAZ ---
 st.title("🛡️ FraudGuard AI")
@@ -133,10 +128,16 @@ if data:
 
     with col1:
         st.write("#### 📝 Detalles de Operación")
-        amount = st.number_input("Monto ($)", min_value=0.0, value=150.0, step=10.0)
+        
+        transaction_type = st.selectbox("Tipo de Movimiento", 
+                                        ['Online Purchase', 'Bank Transfer', 'ATM Withdrawal', 'POS Purchase'])
+        
+        # LÓGICA DE MONTO (ENTEROS)
+        # step=1 asegura enteros. format="%.0f" quita los decimales visuales.
+        amount = st.number_input("Monto ($)", min_value=0.0, value=150.0, step=1.0, format="%.0f")
+        
         account_age = st.number_input("Antigüedad (Años)", 0.0, 100.0, 2.0, 0.1, "%.1f")
         hour = st.slider("Hora", 0, 23, 22)
-        transaction_type = st.selectbox("Tipo", ['Online Purchase', 'Bank Transfer', 'ATM Withdrawal', 'POS Purchase'])
         customer_segment = st.selectbox("Segmento", ['Retail', 'Business', 'Corporate'])
 
     with col2:
@@ -144,10 +145,28 @@ if data:
         
         if st.button("ANALIZAR RIESGO"):
             
-            # Back-end simulation
+            # --- VALIDACIÓN DE REGLAS DE NEGOCIO (ATM) ---
+            error_validacion = False
+            
+            if transaction_type == 'ATM Withdrawal':
+                # Regla 1: Mínimo 20
+                if amount < 20:
+                    st.error("⛔ **Error ATM:** El monto mínimo de retiro es $20.")
+                    error_validacion = True
+                # Regla 2: Enteros (Aunque el input fuerza visualmente, validamos internamente)
+                elif amount % 1 != 0: 
+                    st.error("⛔ **Error ATM:** El cajero solo dispensa billetes (números enteros).")
+                    error_validacion = True
+            
+            # Si hay error, detenemos todo aquí
+            if error_validacion:
+                st.stop()
+
+            # --- SI PASA LA VALIDACIÓN, CONTINUAMOS ---
+            
+            # Backend Simulation (Ahora con más peso en la hora)
             risk_score_interno = simular_risk_score(amount, account_age, hour, transaction_type)
             
-            # Datos para el modelo
             input_data = pd.DataFrame({
                 'amount': [amount],
                 'account_age': [account_age],
@@ -164,7 +183,7 @@ if data:
                 prob_pct = probabilidad * 100
                 es_fraude = probabilidad >= umbral_usuario
 
-                # --- RESULTADO VISUAL ---
+                # --- VISUALIZACIÓN ---
                 st.write("")
                 c1, c2 = st.columns([1, 1])
                 
@@ -208,10 +227,12 @@ if data:
                     else:
                         st.success("✅ **APROBAR TRANSACCIÓN**")
 
-                # --- SHAP WATERFALL ---
+                # --- SHAP ---
                 st.divider()
                 st.subheader("🤖 Análisis de Factores Clave")
-                st.markdown("**¿Qué variables empujaron esta decisión?**")
+                # Explicación dinámica si la hora fue clave
+                if (hour >= 21 or hour <= 6) and transaction_type == 'ATM Withdrawal':
+                    st.warning("⚠️ **Factor Horario:** La operación ocurre en horario de alto riesgo para cajeros automáticos.")
                 
                 with st.spinner("Calculando impacto de variables..."):
                     mostrar_explicacion_shap(modelo, preprocessor, input_data)
