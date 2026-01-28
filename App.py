@@ -11,12 +11,19 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. ESTILOS CSS ---
+# --- 2. ESTILOS CSS (CORREGIDO) ---
+# Se fuerza el color de texto a negro en los botones para contraste
 st.markdown("""
     <style>
     .main { background-color: #f5f7f9; }
-    .stButton>button { width: 100%; background-color: #ff4b4b; color: white; font-weight: bold; }
-    .metric-box { padding: 10px; background-color: white; border-radius: 5px; border-left: 5px solid #ff4b4b; }
+    div.stButton > button:first-child {
+        background-color: #ff4b4b;
+        color: white;
+        font-weight: bold;
+        width: 100%;
+        height: 60px;
+        font-size: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -32,65 +39,46 @@ def cargar_modelo():
 
 data = cargar_modelo()
 
-# --- 4. FUNCIONES AUXILIARES (LÓGICA PURA) ---
+# --- 4. FUNCIONES DE LÓGICA (MODULARIZADAS) ---
 
 def analizar_contexto_hora(hour, transaction_type):
-    """
-    Función pura: Recibe hora y tipo, devuelve penalización de riesgo.
-    Separa la lógica compleja del cálculo general.
-    """
+    """Calcular penalización por hora y tipo."""
     penalizacion = 0
-    
-    # Definimos qué es "Horario Nocturno" (21:00 a 06:00)
     es_noche = (hour >= 21) or (hour <= 6)
     es_madrugada = (0 <= hour <= 5)
 
-    # REGLA A: Cajeros Automáticos (ATM)
     if transaction_type == 'ATM Withdrawal':
         if es_noche:
-            # 🚨 ALERTA ROJA: Sacar plata de noche es muy sospechoso
-            penalizacion += 30  
-        else:
-            # De día es comportamiento normal
-            penalizacion += 0
-
-    # REGLA B: Compras Online
+            penalizacion += 30  # 🚨 ATM de noche
     elif transaction_type == 'Online Purchase':
         if es_madrugada:
-            # ⚠️ ALERTA AMARILLA: Comprar a las 3 AM es raro, pero no ilegal
-            penalizacion += 15
-            
-    # REGLA C: Puntos de Venta (POS)
+            penalizacion += 15  # ⚠️ Compra madrugada
     elif transaction_type == 'POS Purchase':
         if es_madrugada:
-            # Puede ser una fiesta/bar, riesgo medio
             penalizacion += 10
-
+            
     return penalizacion
 
 def simular_risk_score(amount, account_age_years, hour, transaction_type):
-    """
-    Calculadora principal que orquesta las reglas.
-    """
+    """Calculadora del Risk Score Simulado (Backend)."""
     base_score = 50
     
-    # 1. Llamamos a la función modularizada (Hora + Tipo)
+    # 1. Contexto Hora/Tipo
     base_score += analizar_contexto_hora(hour, transaction_type)
     
-    # 2. Regla de Antigüedad (Float)
-    if account_age_years < 0.5: base_score += 25  # Cuenta muy nueva (< 6 meses)
+    # 2. Antigüedad
+    if account_age_years < 0.5: base_score += 25
     elif account_age_years < 1.0: base_score += 15
-    elif account_age_years > 5.0: base_score -= 10 # Fidelidad
+    elif account_age_years > 5.0: base_score -= 10
         
-    # 3. Regla de Montos
+    # 3. Montos
     if amount > 1000: base_score += 15
     if amount > 5000: base_score += 20
         
-    # Limitar el score entre 0 y 100 para que sea realista
-    return min(max(base_score, 0), 100)
+    # Limitar estrictamente entre 0 y 100
+    return int(min(max(base_score, 0), 100))
 
-
-# --- 5. INTERFAZ DE USUARIO (FRONTEND) ---
+# --- 5. INTERFAZ GRÁFICA ---
 st.title("🛡️ FraudGuard AI: Monitor de Transacciones")
 
 if data:
@@ -98,16 +86,15 @@ if data:
     preprocessor = data['preprocesador']
     umbral_sugerido = data.get('umbral_optimo', 0.5)
 
-    # --- SIDEBAR ---
+    # BARRA LATERAL
     st.sidebar.header("⚙️ Configuración")
     umbral_usuario = st.sidebar.slider(
         "Sensibilidad (Umbral)", 
-        0.0, 1.0, float(umbral_sugerido), 0.01,
-        help="Ajusta el nivel de tolerancia del modelo."
+        0.0, 1.0, float(umbral_sugerido), 0.01
     )
-    st.sidebar.markdown(f"**Umbral Sugerido:** `{umbral_sugerido:.2f}`")
+    st.sidebar.info(f"Umbral IA Sugerido: **{umbral_sugerido:.2f}**")
 
-    # --- INPUTS ---
+    # COLUMNAS PRINCIPALES
     col1, col2 = st.columns([1, 2])
 
     with col1:
@@ -115,15 +102,14 @@ if data:
         
         amount = st.number_input("Monto ($)", min_value=0.0, value=150.0, step=10.0)
         
-        # Input de Float para años
         account_age = st.number_input(
             "Antigüedad Cuenta (Años)", 
             min_value=0.0, max_value=100.0, value=2.0, step=0.1, format="%.1f"
         )
         
-        hour = st.slider("Hora (0-23h)", 0, 23, 22) # Por defecto a las 22:00 para probar tu caso
+        hour = st.slider("Hora (0-23h)", 0, 23, 22) # Default 22 para probar ATM nocturno
         
-        # IMPORTANTE: Estos strings deben coincidir con tu entrenamiento
+        # Strings exactos del entrenamiento
         transaction_type = st.selectbox("Tipo de Movimiento", 
                                         ['Online Purchase', 'Bank Transfer', 'ATM Withdrawal', 'POS Purchase'])
         
@@ -135,20 +121,26 @@ if data:
     with col2:
         st.subheader("🔍 Análisis en Tiempo Real")
         
+        # Botón de acción
         if st.button("ANALIZAR AHORA"):
-            # 1. Calculamos el Risk Score usando la nueva estructura
+            
+            # 1. Calcular Risk Score
             risk_score_calculado = simular_risk_score(amount, account_age, hour, transaction_type)
             
-            # Mostramos el detalle del cálculo para que se entienda la lógica
-            st.markdown(f"""
-                <div class="metric-box">
-                    ℹ️ <b>Backend Risk Score:</b> {risk_score_calculado}/100<br>
-                    <small>Se detectó: {transaction_type} a las {hour}:00 h.</small>
-                </div>
-                <br>
-            """, unsafe_allow_html=True)
+            # 2. MOSTRAR RESULTADO DEL BACKEND (Usando st.metric nativo para evitar error visual)
+            # Creamos 3 columnas pequeñas para mostrar los datos calculados limpiamente
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Risk Score (Backend)", f"{risk_score_calculado}/100", delta_color="inverse")
+            m2.metric("Hora Detectada", f"{hour}:00 hrs")
+            m3.metric("Tipo", transaction_type)
 
-            # 2. Preparamos el DataFrame (Inputs + Score Calculado)
+            # Mensaje explicativo si el riesgo es alto por lógica interna
+            if risk_score_calculado > 80:
+                st.warning("⚠️ **Nota:** El sistema interno ha elevado el riesgo debido a la hora y tipo de transacción.")
+
+            st.divider() # Línea divisoria visual
+
+            # 3. Prepara DataFrame para la IA
             input_data = pd.DataFrame({
                 'amount': [amount],
                 'account_age': [account_age],
@@ -159,13 +151,13 @@ if data:
                 'gender': [gender]
             })
 
-            # 3. Predicción IA
+            # 4. Predicción IA
             try:
                 input_processed = preprocessor.transform(input_data)
                 probabilidad = modelo.predict_proba(input_processed)[0, 1]
                 es_fraude = probabilidad >= umbral_usuario
 
-                # 4. Visualización
+                # 5. Gráfico Gauge
                 fig = go.Figure(go.Indicator(
                     mode = "gauge+number",
                     value = probabilidad * 100,
@@ -182,6 +174,7 @@ if data:
                 ))
                 st.plotly_chart(fig, use_container_width=True)
 
+                # Veredicto Final
                 if es_fraude:
                     st.error("🚨 TRANSACCIÓN BLOQUEADA")
                 else:
