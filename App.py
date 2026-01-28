@@ -101,7 +101,7 @@ if data:
         hour = st.slider("Hora (0-23h)", 0, 23, 14)
         
         transaction_type = st.selectbox("Tipo de Movimiento", 
-                                        ['Online Purchase', 'Bank Transfer', 'ATM Withdrawal', 'POS Purchase'])
+                                        ['Online Purchase', 'POS Purchase', 'ATM Withdrawal', 'Bank Transfer'])
         customer_segment = st.selectbox("Segmento Cliente", 
                                         ['Retail', 'Business', 'Corporate'])
 
