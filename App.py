@@ -21,14 +21,6 @@ st.markdown("""
         font-size: 20px;
         border-radius: 10px;
     }
-    .risk-label {
-        padding: 10px;
-        border-radius: 5px;
-        text-align: center;
-        font-weight: bold;
-        font-size: 18px;
-        margin-bottom: 10px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -70,38 +62,60 @@ def simular_risk_score(amount, account_age_years, hour, transaction_type):
         
     return int(min(max(base_score, 0), 100))
 
-# --- 4. FUNCIÓN PARA VISUALIZAR SHAP ---
+# --- 4. FUNCIÓN SHAP (FILTRADA Y LIMPIA) ---
 def mostrar_explicacion_shap(modelo, preprocessor, input_df):
     """
-    Genera un gráfico Waterfall de SHAP para explicar la decisión.
+    Genera un gráfico Waterfall filtrando las categorías que valen 0.
     """
     try:
-        # 1. Transformar los datos igual que el modelo
+        # A. Transformar datos
         X_processed = preprocessor.transform(input_df)
         
-        # 2. Recuperar nombres de columnas (Features)
-        # Esto intenta obtener los nombres luego del OneHotEncoding
+        # B. Obtener nombres de columnas
         try:
             feature_names = preprocessor.get_feature_names_out()
         except:
-            # Fallback si la versión de scikit-learn es vieja
             feature_names = [f"Feature {i}" for i in range(X_processed.shape[1])]
 
-        # 3. Crear Explainer (Solo lo hacemos una vez si fuera necesario, aquí on-the-fly)
+        # C. Calcular valores SHAP
         explainer = shap.TreeExplainer(modelo)
         shap_values = explainer(X_processed)
         
-        # Asignamos los nombres de las columnas para que el gráfico sea legible
+        # Asignar nombres al objeto SHAP
         shap_values.feature_names = feature_names
-
-        # 4. Graficar
-        fig, ax = plt.subplots(figsize=(8, 5))
-        # Usamos waterfall para ver la contribución de cada variable
-        shap.plots.waterfall(shap_values[0], max_display=7, show=False)
+        
+        # --- LÓGICA DE FILTRADO ---
+        # Obtenemos la explicación para la única fila que tenemos (índice 0)
+        single_shap = shap_values[0]
+        
+        indices_a_mostrar = []
+        nombres_numericos = ['amount', 'account_age', 'risk_score', 'hour']
+        
+        # Recorremos cada variable para decidir si la mostramos
+        for i, nombre_columna in enumerate(feature_names):
+            valor_input = single_shap.data[i] # El valor real (0 o 1 en categorías)
+            
+            # Condición 1: Es numérica? (Siempre mostramos numéricas)
+            # Buscamos si el nombre limpio está dentro del nombre de la columna (ej: "amount" en "scaler__amount")
+            es_numerica = any(num in nombre_columna for num in nombres_numericos)
+            
+            # Condición 2: Es una categoría activa? (Valor cercano a 1)
+            # En OneHotEncoding, si vale > 0.5 es que está presente.
+            es_categoria_activa = abs(valor_input) > 0.01 
+            
+            if es_numerica or es_categoria_activa:
+                indices_a_mostrar.append(i)
+        
+        # D. Crear un nuevo objeto SHAP solo con las columnas filtradas
+        shap_filtrado = single_shap[indices_a_mostrar]
+        
+        # E. Graficar
+        fig, ax = plt.subplots(figsize=(9, 5))
+        shap.plots.waterfall(shap_filtrado, max_display=10, show=False)
         st.pyplot(fig)
         
     except Exception as e:
-        st.warning(f"No se pudo generar la explicación gráfica: {e}")
+        st.warning(f"No se pudo generar el gráfico SHAP: {e}")
 
 # --- 5. INTERFAZ ---
 st.title("🛡️ FraudGuard AI")
@@ -130,9 +144,10 @@ if data:
         
         if st.button("ANALIZAR RIESGO"):
             
-            # --- CÁLCULO Y PREDICCIÓN ---
+            # Back-end simulation
             risk_score_interno = simular_risk_score(amount, account_age, hour, transaction_type)
             
+            # Datos para el modelo
             input_data = pd.DataFrame({
                 'amount': [amount],
                 'account_age': [account_age],
@@ -149,12 +164,11 @@ if data:
                 prob_pct = probabilidad * 100
                 es_fraude = probabilidad >= umbral_usuario
 
-                # --- A. NIVEL DE RIESGO (TEXTO) ---
-                st.write("") # Espacio
+                # --- RESULTADO VISUAL ---
+                st.write("")
                 c1, c2 = st.columns([1, 1])
                 
                 with c1:
-                    # Gauge Chart
                     fig = go.Figure(go.Indicator(
                         mode = "gauge+number",
                         value = prob_pct,
@@ -175,40 +189,33 @@ if data:
                     st.plotly_chart(fig, use_container_width=True)
 
                 with c2:
-                    # Lógica de Niveles
                     if prob_pct < 30:
-                        nivel_texto = "BAJO"
-                        color_bg = "#d4edda" # Verde claro
-                        color_txt = "#155724"
+                        nivel = "BAJO"; color = "#d4edda"; txt = "#155724"
                     elif prob_pct < 70:
-                        nivel_texto = "MEDIO"
-                        color_bg = "#fff3cd" # Amarillo
-                        color_txt = "#856404"
+                        nivel = "MEDIO"; color = "#fff3cd"; txt = "#856404"
                     else:
-                        nivel_texto = "ALTO"
-                        color_bg = "#f8d7da" # Rojo
-                        color_txt = "#721c24"
+                        nivel = "ALTO"; color = "#f8d7da"; txt = "#721c24"
 
                     st.markdown(f"""
-                        <div style="background-color: {color_bg}; color: {color_txt}; padding: 15px; border-radius: 10px; text-align: center; margin-top: 40px;">
-                            <h3 style="margin:0;">Riesgo: {nivel_texto}</h3>
+                        <div style="background-color: {color}; color: {txt}; padding: 15px; border-radius: 10px; text-align: center; margin-top: 40px;">
+                            <h3 style="margin:0;">Riesgo: {nivel}</h3>
                             <p style="margin:0;">Probabilidad: {prob_pct:.1f}%</p>
                         </div>
                     """, unsafe_allow_html=True)
                     
                     if es_fraude:
-                        st.error("🚨 **ACCIÓN: BLOQUEAR**")
+                        st.error("🚨 **BLOQUEAR TRANSACCIÓN**")
                     else:
-                        st.success("✅ **ACCIÓN: APROBAR**")
+                        st.success("✅ **APROBAR TRANSACCIÓN**")
 
-                # --- B. EXPLICACIÓN SHAP ---
+                # --- SHAP WATERFALL ---
                 st.divider()
-                st.subheader("🤖 ¿Por qué la IA tomó esta decisión?")
-                st.caption("Gráfico de contribución (SHAP): Las barras rojas aumentan el riesgo, las azules lo bajan.")
+                st.subheader("🤖 Análisis de Factores Clave")
+                st.markdown("**¿Qué variables empujaron esta decisión?**")
                 
-                with st.spinner("Generando explicación detallada..."):
+                with st.spinner("Calculando impacto de variables..."):
                     mostrar_explicacion_shap(modelo, preprocessor, input_data)
 
             except Exception as e:
-                st.error("Error en el procesamiento.")
-                st.write(e)
+                st.error("Error técnico al procesar.")
+                st.caption(e)
