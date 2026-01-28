@@ -35,47 +35,51 @@ def cargar_modelo():
 
 data = cargar_modelo()
 
-# --- 3. LÓGICA DE NEGOCIO (BACKEND REFORZADO) ---
-def analizar_contexto_hora(hour, transaction_type):
-    penalizacion = 0
-    # Definimos noche cerrada
-    es_noche = (hour >= 21) or (hour <= 6)
-    es_madrugada = (0 <= hour <= 5)
-
-    if transaction_type == 'ATM Withdrawal':
-        if es_noche:
-            # 🚨 AUMENTAMOS LA PENALIZACIÓN (Antes 30 -> Ahora 45)
-            # Esto hará que el Risk Score suba mucho más y el modelo reaccione.
-            penalizacion += 45  
-    
-    elif transaction_type == 'Online Purchase' and es_madrugada:
-        penalizacion += 20  # Aumentado levemente
-        
-    elif transaction_type == 'POS Purchase' and es_madrugada:
-        penalizacion += 15
-
-    return penalizacion
-
+# --- 3. LÓGICA DE NEGOCIO (KILL SWITCH / HARD RULES) ---
 def simular_risk_score(amount, account_age_years, hour, transaction_type):
+    """
+    Define el Risk Score. Si hay alertas rojas, impone un puntaje alto directo.
+    Si no, calcula por sumas y restas.
+    """
+    
+    # Definiciones de tiempo
+    es_noche = (hour >= 21) or (hour <= 6)      # 9 PM - 6 AM
+    es_madrugada = (0 <= hour <= 5)             # 12 AM - 5 AM
+    
+    # --- REGLAS DE MUERTE SÚBITA (Hard Rules) ---
+    # Estas reglas ignoran la antigüedad o el monto, van directo al riesgo alto.
+    
+    # CASO 1: ATM DE NOCHE -> Riesgo Crítico Inmediato
+    if transaction_type == 'ATM Withdrawal' and es_noche:
+        return 95  # Casi el máximo posible (Riesgo Crítico)
+
+    # CASO 2: COMPRA ONLINE DE MADRUGADA -> Riesgo Alto
+    if transaction_type == 'Online Purchase' and es_madrugada:
+        return 80  # Entra en zona de riesgo alto directamente
+    
+    # --- CÁLCULO ESTÁNDAR (Si no es una alerta roja) ---
     base_score = 50
-    base_score += analizar_contexto_hora(hour, transaction_type)
     
-    # Cuentas nuevas
-    if account_age_years < 0.5: base_score += 25
+    # Penalización menor por POS de madrugada (fiesta/bar)
+    if transaction_type == 'POS Purchase' and es_madrugada:
+        base_score += 15
+    
+    # Antigüedad (Factor mitigante)
+    if account_age_years < 0.5: base_score += 25  # Cuenta nueva = riesgo
     elif account_age_years < 1.0: base_score += 15
-    elif account_age_years > 5.0: base_score -= 10
+    elif account_age_years > 5.0: base_score -= 15 # Cliente fiel = menos riesgo
     
-    # Montos
+    # Montos altos
     if amount > 1000: base_score += 15
     if amount > 5000: base_score += 20
         
+    # Limitar entre 0 y 100
     return int(min(max(base_score, 0), 100))
 
-# --- 4. FUNCIÓN SHAP (FILTRADO INTELIGENTE) ---
+# --- 4. FUNCIÓN SHAP ---
 def mostrar_explicacion_shap(modelo, preprocessor, input_df):
     try:
         X_processed = preprocessor.transform(input_df)
-        
         try:
             feature_names = preprocessor.get_feature_names_out()
         except:
@@ -88,16 +92,11 @@ def mostrar_explicacion_shap(modelo, preprocessor, input_df):
         single_shap = shap_values[0]
         
         indices_a_mostrar = []
-        # Variables numéricas que SIEMPRE queremos ver
         nombres_numericos = ['amount', 'account_age', 'risk_score', 'hour']
         
         for i, nombre_columna in enumerate(feature_names):
             valor_input = single_shap.data[i]
-            
-            # Chequeamos si es numérica mirando el nombre de la columna
             es_numerica = any(num in nombre_columna for num in nombres_numericos)
-            
-            # Chequeamos si es una categoría activa (valor > 0)
             es_categoria_activa = abs(valor_input) > 0.01 
             
             if es_numerica or es_categoria_activa:
@@ -128,14 +127,11 @@ if data:
 
     with col1:
         st.write("#### 📝 Detalles de Operación")
-        
         transaction_type = st.selectbox("Tipo de Movimiento", 
                                         ['Online Purchase', 'Bank Transfer', 'ATM Withdrawal', 'POS Purchase'])
         
-        # LÓGICA DE MONTO (ENTEROS)
-        # step=1 asegura enteros. format="%.0f" quita los decimales visuales.
+        # Validaciones visuales
         amount = st.number_input("Monto ($)", min_value=0.0, value=150.0, step=1.0, format="%.0f")
-        
         account_age = st.number_input("Antigüedad (Años)", 0.0, 100.0, 2.0, 0.1, "%.1f")
         hour = st.slider("Hora", 0, 23, 22)
         customer_segment = st.selectbox("Segmento", ['Retail', 'Business', 'Corporate'])
@@ -145,98 +141,11 @@ if data:
         
         if st.button("ANALIZAR RIESGO"):
             
-            # --- VALIDACIÓN DE REGLAS DE NEGOCIO (ATM) ---
-            error_validacion = False
-            
+            # --- VALIDACIÓN ATM ---
             if transaction_type == 'ATM Withdrawal':
-                # Regla 1: Mínimo 20
                 if amount < 20:
-                    st.error("⛔ **Error ATM:** El monto mínimo de retiro es $20.")
-                    error_validacion = True
-                # Regla 2: Enteros (Aunque el input fuerza visualmente, validamos internamente)
+                    st.error("⛔ **Error:** Monto mínimo en cajero es $20.")
+                    st.stop()
                 elif amount % 1 != 0: 
-                    st.error("⛔ **Error ATM:** El cajero solo dispensa billetes (números enteros).")
-                    error_validacion = True
-            
-            # Si hay error, detenemos todo aquí
-            if error_validacion:
-                st.stop()
-
-            # --- SI PASA LA VALIDACIÓN, CONTINUAMOS ---
-            
-            # Backend Simulation (Ahora con más peso en la hora)
-            risk_score_interno = simular_risk_score(amount, account_age, hour, transaction_type)
-            
-            input_data = pd.DataFrame({
-                'amount': [amount],
-                'account_age': [account_age],
-                'risk_score': [risk_score_interno],
-                'hour': [hour],
-                'transaction_type': [transaction_type],
-                'customer_segment': [customer_segment]
-            })
-
-            try:
-                # Predicción
-                input_processed = preprocessor.transform(input_data)
-                probabilidad = modelo.predict_proba(input_processed)[0, 1]
-                prob_pct = probabilidad * 100
-                es_fraude = probabilidad >= umbral_usuario
-
-                # --- VISUALIZACIÓN ---
-                st.write("")
-                c1, c2 = st.columns([1, 1])
-                
-                with c1:
-                    fig = go.Figure(go.Indicator(
-                        mode = "gauge+number",
-                        value = prob_pct,
-                        number = {'suffix': "%"},
-                        title = {'text': "Probabilidad"},
-                        gauge = {
-                            'axis': {'range': [0, 100]},
-                            'bar': {'color': "darkred" if es_fraude else "#00CC96"},
-                            'steps': [
-                                {'range': [0, 30], 'color': "#E5F5F9"}, 
-                                {'range': [30, 70], 'color': "#FFF8DD"},
-                                {'range': [70, 100], 'color': "#FFE4E1"}
-                            ],
-                            'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': umbral_usuario * 100}
-                        }
-                    ))
-                    fig.update_layout(margin=dict(l=20, r=20, t=30, b=20), height=200)
-                    st.plotly_chart(fig, use_container_width=True)
-
-                with c2:
-                    if prob_pct < 30:
-                        nivel = "BAJO"; color = "#d4edda"; txt = "#155724"
-                    elif prob_pct < 70:
-                        nivel = "MEDIO"; color = "#fff3cd"; txt = "#856404"
-                    else:
-                        nivel = "ALTO"; color = "#f8d7da"; txt = "#721c24"
-
-                    st.markdown(f"""
-                        <div style="background-color: {color}; color: {txt}; padding: 15px; border-radius: 10px; text-align: center; margin-top: 40px;">
-                            <h3 style="margin:0;">Riesgo: {nivel}</h3>
-                            <p style="margin:0;">Probabilidad: {prob_pct:.1f}%</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    if es_fraude:
-                        st.error("🚨 **BLOQUEAR TRANSACCIÓN**")
-                    else:
-                        st.success("✅ **APROBAR TRANSACCIÓN**")
-
-                # --- SHAP ---
-                st.divider()
-                st.subheader("🤖 Análisis de Factores Clave")
-                # Explicación dinámica si la hora fue clave
-                if (hour >= 21 or hour <= 6) and transaction_type == 'ATM Withdrawal':
-                    st.warning("⚠️ **Factor Horario:** La operación ocurre en horario de alto riesgo para cajeros automáticos.")
-                
-                with st.spinner("Calculando impacto de variables..."):
-                    mostrar_explicacion_shap(modelo, preprocessor, input_data)
-
-            except Exception as e:
-                st.error("Error técnico al procesar.")
-                st.caption(e)
+                    st.error("⛔ **Error:** Cajero solo entrega billetes enteros.")
+                    st.stop()
