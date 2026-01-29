@@ -1,32 +1,21 @@
-# 1. Imagen base ligera de Python
+# 1. Usamos una imagen base de Python ligera
 FROM python:3.9-slim
 
-# 2. Definir directorio de trabajo dentro del contenedor
+# 2. Directorio de trabajo en el contenedor
 WORKDIR /app
 
-# 3. Instalar herramientas de compilación del sistema
-# (Necesarias para compilar SHAP y XGBoost en Linux)
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# 4. Copiar y procesar dependencias primero (para aprovechar caché de Docker)
+# 3. Copiamos los archivos necesarios
 COPY requirements.txt .
+COPY App.py .
+COPY modelo_fraude_final.pkl .
+
+# 4. Instalamos dependencias
+# (Añadimos build-essential para compilar algunas librerías si hace falta)
+RUN apt-get update && apt-get install -y build-essential
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copiar los archivos del código fuente
-# (Asegúrate de tener estos 5 archivos + el modelo + el index.html en tu carpeta)
-COPY app.py .
-COPY schemas.py .
-COPY logic.py .
-COPY inference.py .
-COPY explainability.py .
-COPY modelo_fraude_final.pkl .
-COPY index.html . 
+# 5. Exponemos el puerto de Streamlit
+EXPOSE 8501
 
-# 6. Exponer el puerto estándar de FastAPI
-EXPOSE 8000
-
-# 7. Comando de arranque: Uvicorn servidor de producción
-# host 0.0.0.0 permite conexiones externas (desde tu PC al contenedor)
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# 6. Comando para iniciar la app
+CMD ["streamlit", "run", "App.py", "--server.port=8501", "--server.address=0.0.0.0"]
