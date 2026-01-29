@@ -2,39 +2,77 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>FraudGuard Bank</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FraudGuard Bank AI</title>
     <style>
-        /* AQUÍ USAS TU CSS LIBREMENTE */
-        body { font-family: 'Arial', sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; padding: 50px; }
-        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 400px; }
-        h1 { color: #2c3e50; text-align: center; }
-        input, select, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ddd; }
-        button { background-color: #e74c3c; color: white; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
-        button:hover { background-color: #c0392b; }
-        #resultado { margin-top: 20px; text-align: center; display: none;}
-        img { width: 100%; margin-top: 15px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: rgb(21, 17, 44); padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
+        h1 { color: #1a202c; text-align: center; margin-bottom: 30px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 24px;}
+        label { display: block; margin-top: 15px; font-weight: 600; color: #4a5568; font-size: 0.9em; }
+        input, select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 6px; border: 1px solid #cbd5e0; box-sizing: border-box; font-size: 16px; transition: border-color 0.2s; }
+        input:focus, select:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1); }
+        
+        button { width: 100%; padding: 14px; margin-top: 25px; border-radius: 6px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; transition: background 0.2s; }
+        .btn-analyze { background-color: #3182ce; color: white; }
+        .btn-analyze:hover { background-color: #2b6cb0; }
+        
+        #resultado { margin-top: 30px; text-align: center; display: none; border-top: 1px solid #e2e8f0; padding-top: 20px; animation: fadeIn 0.5s; }
+        .result-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; color: white; font-weight: bold; margin-bottom: 10px; font-size: 1.2em;}
+        .safe { background-color: #48bb78; }
+        .danger { background-color: #f56565; }
+        
+        .messages { text-align: left; background: #fffaf0; border-left: 4px solid #ed8936; padding: 10px; margin: 15px 0; font-size: 0.9em; color: #744210; border-radius: 4px; }
+        .messages ul { margin: 0; padding-left: 20px; }
+        
+        img.shap-plot { width: 100%; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 15px; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h1>🛡️ FraudGuard</h1>
+    <h1>🛡️ FraudGuard AI</h1>
     <form id="fraudeForm">
-        <label>Monto ($)</label>
-        <input type="number" id="amount" value="150">
         
-        <label>Tipo</label>
+        <label>Monto de Transacción ($)</label>
+        <input type="number" id="amount" value="150" min="1" step="0.01" required>
+        
+        <label>Hora del día (0 - 23)</label>
+        <input type="number" id="hour" value="14" min="0" max="23" required placeholder="Ej: 22 para las 10 PM">
+
+        <label>Antigüedad de la cuenta (Años)</label>
+        <input type="number" id="account_age" value="2.5" min="0" step="0.1" required>
+        
+        <label>Tipo de Movimiento</label>
         <select id="type">
-            <option value="Online Purchase">Online</option>
-            <option value="ATM Withdrawal">ATM</option>
+            <option value="Online Purchase">Compra Online</option>
+            <option value="ATM Withdrawal">Retiro en Cajero (ATM)</option>
+            <option value="POS Purchase">Compra física (POS)</option>
+            <option value="Bank Transfer">Transferencia Bancaria</option>
         </select>
         
-        <button type="submit">Analizar Riesgo</button>
+        <label>Segmento del Cliente</label>
+        <select id="segment">
+            <option value="Retail">Persona (Retail)</option>
+            <option value="Business">PyME / Negocio</option>
+            <option value="Corporate">Corporativo</option>
+        </select>
+
+        <button type="submit" class="btn-analyze" id="btnSubmit">Analizar Riesgo</button>
     </form>
 
     <div id="resultado">
-        <h2 id="textoRiesgo"></h2>
-        <p>Probabilidad: <span id="probVal"></span>%</p>
+        <div id="badgeContainer"></div>
+        
+        <p style="font-size: 1.1em;">Probabilidad de Fraude: <strong id="probVal"></strong></p>
+        <p style="color: #718096; font-size: 0.9em;">Score de Riesgo Interno: <span id="riskScore"></span>/100</p>
+        
+        <div id="alertBox" class="messages" style="display: none;">
+            <strong>⚠️ Detalles del Análisis:</strong>
+            <ul id="alertList"></ul>
+        </div>
+
         <div id="shapContainer"></div>
     </div>
 </div>
@@ -43,30 +81,84 @@
     document.getElementById('fraudeForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        const btn = document.getElementById('btnSubmit');
+        const originalText = btn.innerText;
+        btn.innerText = "Analizando...";
+        btn.disabled = true;
+
+        // Recolectamos los datos EXACTOS que pide schemas.py
         const data = {
-            amount: document.getElementById('amount').value,
+            amount: parseFloat(document.getElementById('amount').value),
+            hour: parseInt(document.getElementById('hour').value),
+            account_age: parseFloat(document.getElementById('account_age').value),
             transaction_type: document.getElementById('type').value,
-            account_age: 2.0, // Simplificado
-            hour: 22,         // Simplificado
-            customer_segment: "Retail"
+            customer_segment: document.getElementById('segment').value
         };
 
-        const response = await fetch('http://localhost:8000/analyze', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data)
-        });
+        try {
+            // Llamada a la API
+            const response = await fetch('/analyze', { // Usamos ruta relativa
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
 
-        const result = await response.json();
-        
-        // Mostrar resultados
-        document.getElementById('resultado').style.display = 'block';
-        document.getElementById('probVal').innerText = (result.probabilidad * 100).toFixed(1);
-        document.getElementById('textoRiesgo').innerText = result.es_fraude ? "🚨 BLOQUEAR" : "✅ APROBAR";
-        document.getElementById('textoRiesgo').style.color = result.es_fraude ? "red" : "green";
-        
-        // Mostrar imagen SHAP
-        document.getElementById('shapContainer').innerHTML = `<img src="data:image/png;base64,${result.shap_image}" />`;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Error en el servidor");
+            }
+
+            const result = await response.json();
+            
+            // --- MOSTRAR RESULTADOS ---
+            document.getElementById('resultado').style.display = 'block';
+            
+            // 1. Probabilidad
+            const probPercent = result.probability_percent.toFixed(2);
+            document.getElementById('probVal').innerText = probPercent + "%";
+            document.getElementById('riskScore').innerText = result.risk_score_input;
+
+            // 2. Badge de Aprobado/Bloqueado
+            const badgeDiv = document.getElementById('badgeContainer');
+            if (result.is_fraud) {
+                badgeDiv.innerHTML = `<span class="result-badge danger">🚨 TRANSACCIÓN BLOQUEADA</span>`;
+                document.getElementById('probVal').style.color = "#e53e3e";
+            } else {
+                badgeDiv.innerHTML = `<span class="result-badge safe">✅ TRANSACCIÓN APROBADA</span>`;
+                document.getElementById('probVal').style.color = "#38a169";
+            }
+
+            // 3. Alertas de Negocio (Logic.py)
+            const alertBox = document.getElementById('alertBox');
+            const alertList = document.getElementById('alertList');
+            alertList.innerHTML = ""; // Limpiar anteriores
+            
+            if (result.alert_messages && result.alert_messages.length > 0) {
+                alertBox.style.display = 'block';
+                result.alert_messages.forEach(msg => {
+                    const li = document.createElement('li');
+                    li.innerText = msg;
+                    alertList.appendChild(li);
+                });
+            } else {
+                alertBox.style.display = 'none';
+            }
+
+            // 4. Imagen SHAP
+            const shapContainer = document.getElementById('shapContainer');
+            if (result.shap_image_base64) {
+                shapContainer.innerHTML = `<p style="margin-top:20px; font-weight:bold; color:#4a5568;">🔍 Explicación de la IA (SHAP):</p>
+                                           <img src="data:image/png;base64,${result.shap_image_base64}" class="shap-plot" alt="Gráfico SHAP" />`;
+            } else {
+                shapContainer.innerHTML = "";
+            }
+
+        } catch (error) {
+            alert("Error: " + error.message);
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
     });
 </script>
 
