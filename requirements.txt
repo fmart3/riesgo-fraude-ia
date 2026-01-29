@@ -1,9 +1,17 @@
-streamlit
+# --- Core API ---
+fastapi>=0.95.0
+uvicorn>=0.22.0
+pydantic>=1.10.0
+
+# --- Procesamiento de Datos ---
 pandas
 numpy
+
+# --- IA y Modelos ---
 scikit-learn
+xgboost
 joblib
-plotly
+
+# --- Explicabilidad y Gráficos ---
 shap
 matplotlib
-xgboost
