@@ -1,6 +1,8 @@
 # app.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles # Opcional si usas CSS externo
 import uvicorn
 import logging
 
@@ -83,3 +85,8 @@ def analyze_transaction(form_data: schemas.TransactionRequest):
 # 5. Ejecución local (opcional, para probar sin Docker)
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    
+# 6. Endpoint para mostrar el Frontend (HTML)
+@app.get("/")
+def read_root():
+    return FileResponse('index.html')
