@@ -11,9 +11,9 @@ def validate_hard_constraints(data: TransactionRequest):
         if data.amount < 20:
             raise ValueError("⛔ Error ATM: El monto mínimo de retiro es $20.")
         
-        # Verificamos si tiene decimales (ej: 20.50)
-        if data.amount % 1 != 0:
-            raise ValueError("⛔ Error ATM: El cajero solo entrega billetes enteros (sin centavos).")
+        # # Verificamos si tiene decimales (ej: 20.50)
+        # if data.amount % 1 != 0:
+        #     raise ValueError("⛔ Error ATM: El cajero solo entrega billetes enteros (sin centavos).")
 
 def calculate_risk_score(data: TransactionRequest) -> int:
     """
