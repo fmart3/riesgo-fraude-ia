@@ -1,8 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles 
-from explainability import generar_explicacion_llm
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 import logging
 
@@ -93,9 +92,10 @@ def analyze_transaction(form_data: schemas.TransactionRequest):
 
     except ValueError as ve:
         # Errores de validación de negocio
+        logger.warning(f"Validación de negocio falló: {ve}") 
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        logger.error(f"Error en el análisis: {e}")
+        logger.error(f"Error crítico: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
 # 5. Endpoint para mostrar el Frontend (HTML)

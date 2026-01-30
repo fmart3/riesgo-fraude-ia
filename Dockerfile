@@ -15,14 +15,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 5. Copiar los archivos del código fuente
-# (Asegúrate de tener estos 5 archivos + el modelo + el index.html en tu carpeta)
-COPY app.py .
-COPY schemas.py .
-COPY logic.py .
-COPY inference.py .
-COPY explainability.py .
-COPY modelo_fraude_final.pkl .
-COPY index.html . 
+COPY . .
 
 # 6. Exponer el puerto estándar de FastAPI
 EXPOSE 8000

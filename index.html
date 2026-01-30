@@ -8,90 +8,159 @@
     
     <style>
         :root {
-            --bg-color: #f0f2f5;
+            --bg-gradient: linear-gradient(135deg, #5fa0ca, #2a1f5e);
             --card-bg: #ffffff;
             --primary: #226db3;
-            --text-dark: #e9edf1;
-            --text-muted: #082b68;
-            --success: #48bb78;
+            --text-muted: #4a5568;
             --danger: #e53e3e;
         }
 
         body { 
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            background: linear-gradient(135deg, #5fa0ca, #2a1f5e); 
+            background: var(--bg-gradient); 
             margin: 0; padding: 20px;
             display: flex; flex-direction: column; align-items: center;
             min-height: 100vh;
         }
 
-        h1.main-title { color: var(--text-dark); margin-bottom: 30px; font-size: 26px; text-align: center; }
+        h1.main-title { 
+            color: #f7fafc; 
+            margin-bottom: 30px; 
+            font-size: 28px; 
+            text-align: center; 
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+        }
 
-        /* --- LAYOUT DE 3 COLUMNAS --- */
+        /* --- LAYOUT PRINCIPAL --- */
         .dashboard-wrapper {
             display: flex; 
-            flex-wrap: wrap; /* Para que se ajuste en móviles */
-            gap: 20px;
-            justify-content: center; 
-            align-items: flex-start;
-            width: 100%; 
-            max-width: 1400px; /* Más ancho para que quepan las 3 columnas */
+            flex-wrap: wrap; 
+            gap: 25px; 
+            justify-content: center; /* Esto centra el form cuando está solo */
+            align-items: flex-start; 
+            width: 95%; 
+            max-width: 1600px;
+            transition: all 0.5s ease; /* Transición suave al cambiar anchos */
         }
 
         .panel-box {
-            background: var(--card-bg); padding: 25px;
-            border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: all 0.3s ease;
+            background: var(--card-bg); padding: 30px;
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+            display: flex; flex-direction: column;
         }
 
-        /* Definición de anchos de las columnas */
-        .col-1-form { flex: 1; min-width: 300px; max-width: 400px; }
-        .col-2-result { flex: 1; min-width: 300px; max-width: 450px; }
-        .col-3-shap { flex: 1.2; min-width: 350px; } /* El SHAP un poco más ancho */
+        /* --- ANIMACIONES --- */
+        /* Clase para ocultar elementos inicialmente */
+        .hidden { display: none !important; }
 
-        h3.panel-title { color: var(--primary); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; font-size: 18px;}
+        /* Animación de entrada (Slide Up + Fade) */
+        .animate-entry { animation: slideUpFade 0.7s ease-out forwards; }
+
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- COLUMNAS --- */
+        
+        /* Columna 1: Formulario */
+        .col-1-form { 
+            flex: 0 0 350px; /* Ancho fijo elegante */
+            max-width: 100%;
+        }
+
+        /* Columna 2: Resultado */
+        .col-2-result { 
+            flex: 1; 
+            min-width: 320px; 
+            /* Quitamos la altura forzada excesiva, usamos min-content */
+            height: fit-content; 
+        }
+
+        /* Columna 3: SHAP */
+        .col-3-shap { 
+            flex: 1.5; /* Un poco más ancha que la col 2 */
+            min-width: 400px; 
+            height: fit-content; /* Se ajusta al contenido, evita espacio blanco */
+            padding-bottom: 20px;
+        } 
+
+        h3.panel-title { 
+            color: var(--primary); 
+            border-bottom: 2px solid #e2e8f0; 
+            padding-bottom: 15px; margin-top: 0; 
+            font-size: 20px;
+        }
 
         /* Estilos del Formulario */
-        label { display: block; margin-top: 12px; font-weight: 600; color: var(--text-muted); font-size: 0.85em; }
-        input, select { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #cbd5e0; box-sizing: border-box; font-size: 14px; }
-        button { width: 100%; padding: 12px; margin-top: 25px; border-radius: 6px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; background-color: #5fa0ca; color: white; transition: 0.2s; }
-        button:hover { background-color: #2b6cb0; }
-        button:disabled { background-color: #1b538f; cursor: wait; }
+        label { display: block; margin-top: 15px; font-weight: 600; color: var(--text-muted); font-size: 0.9em; }
+        input, select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #cbd5e0; box-sizing: border-box; font-size: 14px; background-color: #f8fafc; }
+        input:focus, select:focus { border-color: var(--primary); outline: none; background-color: #fff; }
+        
+        button { 
+            width: 100%; padding: 14px; margin-top: 30px; 
+            border-radius: 8px; border: none; cursor: pointer; 
+            font-size: 16px; font-weight: bold; 
+            background-color: #5fa0ca; color: white; 
+            transition: all 0.2s; 
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11); 
+        }
+        button:hover { background-color: #2b6cb0; transform: translateY(-2px); box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1); }
+        button:disabled { background-color: #cbd5e0; cursor: wait; transform: none; box-shadow: none;}
 
         /* Estilos Resultados */
-        .loading-placeholder { text-align: center; color: #a0aec0; padding: 40px; border: 2px dashed #e2e8f0; border-radius: 12px; }
-        
-        #gaugeContainer { width: 100%; height: 220px; margin-top: -20px; }
-
-        .ai-box {
-            background: #ebf8ff; border-left: 4px solid #4299e1;
-            padding: 15px; margin-top: 10px; border-radius: 4px; font-size: 0.95em;
+        /* Contenedor Flex para CENTRAR EL GAUGE perfectamente */
+        .gauge-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            margin-top: 10px;
+            margin-bottom: 10px;
         }
-        .ai-title { font-weight: bold; color: #2b6cb0; display: block; margin-bottom: 5px; }
+        
+        .ai-box {
+            background: #ebf8ff; border-left: 5px solid #4299e1;
+            padding: 20px; margin-top: 15px; border-radius: 6px; 
+            font-size: 1em; line-height: 1.6; color: #2d3748;
+        }
+        .ai-title { font-weight: bold; color: #2b6cb0; display: block; margin-bottom: 8px; font-size: 1.1em;}
 
         /* Estilos SHAP */
-        #shapContainer { text-align: center; }
-        img.shap-plot { width: 100%; height: auto; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        #shapContainer { 
+            text-align: center; 
+            width: 100%; 
+            display: flex; flex-direction: column; align-items: center; 
+        }
+        img.shap-plot { 
+            width: 100%; 
+            height: auto; 
+            border-radius: 8px; 
+            border: 1px solid #e2e8f0; 
+        }
 
-        /* Animación */
-        .fade-in { animation: fadeIn 0.5s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Responsive */
+        @media (max-width: 1100px) {
+            .dashboard-wrapper { flex-direction: column; align-items: center; }
+            .col-1-form, .col-2-result, .col-3-shap { width: 100%; max-width: 600px; flex: auto; }
+        }
 
     </style>
 </head>
 <body>
 
-    <h1 class="main-title">🛡️ FraudGuard AI Dashboard</h1>
+    <h1 class="main-title animate-entry">🛡️ FraudGuard AI Dashboard</h1>
 
     <div class="dashboard-wrapper">
         
-        <div class="panel-box col-1-form">
+        <div class="panel-box col-1-form animate-entry">
             <h3 class="panel-title">1. Datos de Operación</h3>
             <form id="fraudeForm">
                 <label>Monto ($)</label>
                 <input type="number" id="amount" value="150" min="1" step="0.01" required>
                 
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 15px;">
                     <div style="flex: 1;"><label>Hora (0-23)</label><input type="number" id="hour" value="14" min="0" max="23" required></div>
                     <div style="flex: 1;"><label>Antigüedad</label><input type="number" id="account_age" value="2.5" min="0" step="0.1" required></div>
                 </div>
@@ -115,33 +184,28 @@
             </form>
         </div>
 
-        <div class="panel-box col-2-result">
+        <div id="colResult" class="panel-box col-2-result hidden">
             <h3 class="panel-title">2. Diagnóstico & IA</h3>
             
-            <div id="loadingPlaceholder" class="loading-placeholder">
-                <p>Esperando datos...</p>
-            </div>
-
-            <div id="resultContent" style="display: none;" class="fade-in">
-                <div id="gaugeContainer"></div>
+            <div id="resultContent">
+                <div class="gauge-wrapper">
+                    <div id="gaugeContainer"></div>
+                </div>
                 
                 <div id="aiBox" class="ai-box" style="display:none">
-                    <span class="ai-title">🤖 Conclusión del Sistema:</span>
-                    <p id="aiText" style="margin:0; font-style: italic;"></p>
+                    <span class="ai-title">🤖 Análisis Inteligente:</span>
+                    <p id="aiText" style="margin:0;"></p>
                 </div>
             </div>
         </div>
 
-        <div class="panel-box col-3-shap">
+        <div id="colShap" class="panel-box col-3-shap hidden">
             <h3 class="panel-title">3. Explicabilidad (SHAP)</h3>
             
-            <div id="shapPlaceholder" class="loading-placeholder">
-                <p>El gráfico aparecerá aquí</p>
-            </div>
-
-            <div id="shapContainer" style="display: none;" class="fade-in">
-                <p style="font-size: 0.9em; color: #718096; margin-bottom: 10px;">
-                    ¿Qué factores empujaron el modelo hacia el fraude?
+            <div id="shapContainer">
+                <p style="font-size: 0.95em; color: #718096; margin-bottom: 15px; width: 100%; text-align: left;">
+                    <b>Factores de Influencia:</b><br>
+                    ¿Qué empujó al modelo a esta decisión?
                 </p>
                 </div>
         </div>
@@ -152,18 +216,15 @@
     document.getElementById('fraudeForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // UI Elements
         const btn = document.getElementById('btnSubmit');
-        const loadPlace = document.getElementById('loadingPlaceholder');
-        const shapPlace = document.getElementById('shapPlaceholder');
-        const resContent = document.getElementById('resultContent');
-        const shapContent = document.getElementById('shapContainer');
-
+        // Referencias a las columnas ocultas
+        const colResult = document.getElementById('colResult');
+        const colShap = document.getElementById('colShap');
+        
         // Estado "Cargando"
-        btn.innerHTML = "Analizando..."; btn.disabled = true;
-        loadPlace.style.display = 'block'; shapPlace.style.display = 'block';
-        resContent.style.display = 'none'; shapContent.style.display = 'none';
-        loadPlace.innerHTML = "<p>🔄 Consultando IA...</p>";
+        const originalBtnText = btn.innerHTML;
+        btn.innerHTML = "Analizando..."; 
+        btn.disabled = true;
 
         const data = {
             amount: parseFloat(document.getElementById('amount').value),
@@ -175,64 +236,94 @@
 
         try {
             const response = await fetch('/analyze', { 
-                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify(data)
             });
             
-            if (!response.ok) throw new Error("Error en servidor");
+            if (!response.ok) {
+                let errorMessage = "Error desconocido";
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.detail;
+                } catch (jsonError) {
+                    errorMessage = await response.text();
+                    if (errorMessage.length > 100) errorMessage = "Error Interno del Servidor (500)";
+                }
+                throw new Error(errorMessage);
+            }
+
             const result = await response.json();
 
-            // Ocultar placeholders y mostrar contenido
-            loadPlace.style.display = 'none'; shapPlace.style.display = 'none';
-            resContent.style.display = 'block'; shapContent.style.display = 'block';
+            // --- ÉXITO: MOSTRAR COLUMNAS ---
+            
+            // 1. Quitamos la clase 'hidden'
+            colResult.classList.remove('hidden');
+            colShap.classList.remove('hidden');
+            
+            // 2. Añadimos la clase de animación para que entren suavemente
+            colResult.classList.add('animate-entry');
+            colShap.classList.add('animate-entry');
 
-            // 1. MEDIDOR (Gauge)
-            const score = result.probability_percent;
-            let barColor = "#48bb78"; // Verde
-            if(score > 35) barColor = "#ed8936"; // Naranja
-            if(score > 70) barColor = "#e53e3e"; // Rojo
+            // --- RENDERIZADO DE GRÁFICOS ---
+
+            // A. MEDIDOR (Gauge) - Centrado y Ajustado
+            const score = result.probability_percent || (result.probability * 100); 
+            let barColor = "#48bb78"; 
+            if(score > 35) barColor = "#ed8936"; 
+            if(score > 70) barColor = "#e53e3e"; 
 
             const gaugeData = [{
                 type: "indicator", mode: "gauge+number", value: score,
-                title: { text: "Nivel de Riesgo", font: { size: 16 } },
-                number: { suffix: "%", font: { size: 26, weight: "bold" } },
+                title: { text: "<b>Nivel de Riesgo</b>", font: { size: 24, color: "#2d3748" } },
+                number: { suffix: "%", font: { size: 40, weight: "bold", color: "#1a202c" } },
                 gauge: {
-                    axis: { range: [null, 100], tickwidth: 1 },
+                    axis: { range: [null, 100], tickwidth: 1, tickcolor: "#a0aec0" },
                     bar: { color: barColor },
-                    bgcolor: "white", borderwidth: 1, bordercolor: "#ccc",
+                    bgcolor: "white", borderwidth: 2, bordercolor: "#e2e8f0",
                     steps: [
-                        { range: [0, 35], color: "rgba(72, 187, 120, 0.2)" },
-                        { range: [35, 70], color: "rgba(237, 137, 54, 0.2)" },
-                        { range: [70, 100], color: "rgba(229, 62, 62, 0.2)" }
+                        { range: [0, 35], color: "rgba(72, 187, 120, 0.1)" },
+                        { range: [35, 70], color: "rgba(237, 137, 54, 0.1)" },
+                        { range: [70, 100], color: "rgba(229, 62, 62, 0.1)" }
                     ],
+                    threshold: { line: { color: "red", width: 4 }, thickness: 0.75, value: score }
                 }
             }];
             
+            // Layout ajustado para centrado perfecto
             const layout = { 
-                width: 350, height: 220, margin: { t: 0, b: 0, l: 30, r: 30 },
-                paper_bgcolor: "rgba(0,0,0,0)"
+                width: 320, height: 250, 
+                margin: { t: 50, b: 20, l: 25, r: 25 }, // Márgenes iguales L y R
+                paper_bgcolor: "rgba(0,0,0,0)", 
+                font: { family: "Segoe UI, sans-serif" }
             };
-            Plotly.newPlot('gaugeContainer', gaugeData, layout, {displayModeBar: false});
+            Plotly.newPlot('gaugeContainer', gaugeData, layout, {displayModeBar: false, responsive: true});
 
-            // 2. TEXTO IA
+            // B. TEXTO IA
             if (result.ai_explanation) {
                 document.getElementById('aiBox').style.display = 'block';
                 document.getElementById('aiText').innerText = result.ai_explanation;
             }
 
-            // 3. IMAGEN SHAP
+            // C. IMAGEN SHAP
+            const shapImage = result.shap_image_base64 || result.shap_plot;
             const shapDiv = document.getElementById('shapContainer');
-            if (result.shap_image_base64) {
-                // Reconstruimos el contenido del div SHAP
-                shapDiv.innerHTML = `
-                    <p style="font-size: 0.9em; color: #718096; margin-bottom: 15px;">Factores de mayor impacto:</p>
-                    <img src="data:image/png;base64,${result.shap_image_base64}" class="shap-plot fade-in" />
-                `;
+            
+            const existingImg = shapDiv.querySelector('img.shap-plot');
+            if (existingImg) existingImg.remove();
+
+            if (shapImage) {
+                const img = document.createElement('img');
+                img.src = "data:image/png;base64," + shapImage;
+                img.className = "shap-plot"; // Ya no necesita fade-in aquí porque toda la columna se anima
+                shapDiv.appendChild(img);
             }
 
         } catch (error) {
-            alert("Error: " + error.message);
+            alert("⚠️ " + error.message);
         } finally {
-            btn.innerHTML = "Analizar Riesgo"; btn.disabled = false;
+            btn.innerHTML = originalBtnText; 
+            btn.disabled = false;
         }
     });
 </script>

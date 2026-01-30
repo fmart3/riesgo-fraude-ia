@@ -1,0 +1,7 @@
+__pycache__
+venv
+.git
+.gitignore
+README.md
+*.pkl
+!modelo_fraude_final.pkl
