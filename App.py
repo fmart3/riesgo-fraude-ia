@@ -1,16 +1,16 @@
-# app.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles # Opcional si usas CSS externo
+from fastapi.staticfiles import StaticFiles 
+from explainability import generar_explicacion_llm
 import uvicorn
 import logging
 
-# --- IMPORTAMOS NUESTROS MÓDULOS (Los crearemos en los siguientes pasos) ---
+# --- IMPORTAMOS NUESTROS MÓDULOS ---
 import schemas          # Formulario y validación de datos
 import logic            # Lógica de negocio y reglas duras
 import inference        # Carga del modelo y predicción
-import explainability   # SHAP y explicaciones
+import explainability   # SHAP y explicaciones (incluye la función del LLM)
 
 # 1. Configuración Inicial
 app = FastAPI(title="FraudGuard AI API", version="2.0")
@@ -20,10 +20,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 2. Configuración de CORS
-# Esto permite que tu HTML (Frontend) hable con este Python (Backend)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción, cambia esto por la URL de tu frontend
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,45 +47,62 @@ def analyze_transaction(form_data: schemas.TransactionRequest):
     1. Recibe datos del formulario (validados por schemas).
     2. Aplica lógica de negocio y Risk Score (logic).
     3. Predice con el modelo IA (inference).
-    4. Genera explicación SHAP (explainability).
+    4. Genera explicación SHAP y Texto LLM (explainability).
     """
     try:
         # A. LÓGICA DE NEGOCIO (Manejo)
-        # Calcula el risk_score interno y valida reglas duras (ej: ATM < 20)
+        # Calcula el risk_score interno y valida reglas duras
         processed_data, business_warnings = logic.process_business_rules(form_data)
         
         # B. INFERENCIA (Resultado Modelo)
-        # Usamos los datos procesados (que ya incluyen el risk_score calculado)
         probability, is_fraud = inference.predict(processed_data)
         
-        # C. EXPLICABILIDAD (SHAP)
-        # Generamos la imagen en base64 y el texto explicativo
+        # C. EXPLICABILIDAD (SHAP Visual)
+        # Obtenemos la imagen y un resumen de texto básico de SHAP
         shap_image, shap_text = explainability.generate_explanation(processed_data)
         
-        # D. CONSTRUIR RESPUESTA
-        # Combinamos las alertas de negocio con las de la IA
-        final_messages = business_warnings + [shap_text]
+        # D. EXPLICABILIDAD GENERATIVA (LLM - Gemini)
+        # Preparamos un texto resumen para que la IA entienda el contexto
+        # CORRECCIÓN: Usamos form_data (no input_data)
+        top_factors_text = f"Factores técnicos detectados: {shap_text}. Monto: {form_data.amount}, Hora: {form_data.hour}."
+
+        # CORRECCIÓN: Usamos form_data.dict() y pasamos None en shap_values si no los tenemos crudos, 
+        # o usamos el shap_text como sustituto.
+        try:
+            explicacion_texto = explainability.generar_explicacion_llm(
+                form_data.dict(), 
+                [], # Pasamos lista vacía si no tenemos los valores crudos a mano, el prompt usará el texto
+                top_factors_text
+            )
+        except Exception as e:
+            explicacion_texto = "No se pudo generar la explicación por IA."
+            logger.error(f"Error LLM: {e}")
+
+        # E. CONSTRUIR RESPUESTA
+        # Combinamos las alertas de negocio
+        final_messages = business_warnings
         
         return {
             "probability_percent": probability * 100,
             "is_fraud": is_fraud,
-            "risk_score_input": processed_data['risk_score'].iloc[0], # Devolvemos el score calculado para mostrarlo
+            "risk_score_input": int(processed_data['risk_score'].iloc[0]), # Convertimos a int
             "alert_messages": final_messages,
-            "shap_image_base64": shap_image
+            "shap_image_base64": shap_image,  # <--- AQUÍ FALTABA LA COMA
+            "ai_explanation": explicacion_texto
         }
 
     except ValueError as ve:
-        # Errores de validación de negocio (ej: ATM monto invalido)
+        # Errores de validación de negocio
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Error en el análisis: {e}")
-        raise HTTPException(status_code=500, detail="Error interno del servidor al procesar la solicitud.")
+        raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
-# 5. Ejecución local (opcional, para probar sin Docker)
-if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
-    
-# 6. Endpoint para mostrar el Frontend (HTML)
+# 5. Endpoint para mostrar el Frontend (HTML)
 @app.get("/")
 def read_root():
     return FileResponse('index.html')
+
+# Ejecución local
+if __name__ == "__main__":
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

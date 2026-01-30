@@ -15,3 +15,4 @@ joblib
 # --- Explicabilidad y Gráficos ---
 shap
 matplotlib
+#google-generativeai

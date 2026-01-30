@@ -4,114 +4,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FraudGuard AI Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    
     <style>
         :root {
             --bg-color: #f0f2f5;
             --card-bg: #ffffff;
-            --primary: #3182ce;
-            --text-dark: #1a202c;
-            --text-muted: #4a5568;
+            --primary: #226db3;
+            --text-dark: #e9edf1;
+            --text-muted: #082b68;
             --success: #48bb78;
             --danger: #e53e3e;
         }
 
         body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: linear-gradient(135deg, #71b7e6, #9b59b6); 
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: linear-gradient(135deg, #5fa0ca, #2a1f5e); 
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
             min-height: 100vh;
         }
 
-        h1.main-title { 
-            color: var(--text-dark); 
-            text-align: center; 
-            margin-bottom: 40px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 15px; 
-            font-size: 28px;
-        }
+        h1.main-title { color: var(--text-dark); margin-bottom: 30px; font-size: 26px; text-align: center; }
 
-        /* --- LAYOUT PRINCIPAL (FLEXBOX) --- */
+        /* --- LAYOUT DE 3 COLUMNAS --- */
         .dashboard-wrapper {
-            display: flex;
-            flex-wrap: wrap; 
-            gap: 30px;
-            justify-content: center;
-            align-items: flex-start; 
-            width: 100%;
-            max-width: 1100px; 
+            display: flex; 
+            flex-wrap: wrap; /* Para que se ajuste en móviles */
+            gap: 20px;
+            justify-content: center; 
+            align-items: flex-start;
+            width: 100%; 
+            max-width: 1400px; /* Más ancho para que quepan las 3 columnas */
         }
 
-        /* Estilo común para las cajas (paneles) */
         .panel-box {
-            background: var(--card-bg);
-            padding: 35px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-            flex: 1 1 400px; 
-            max-width: 500px;
+            background: var(--card-bg); padding: 25px;
+            border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
             transition: all 0.3s ease;
         }
 
-        h3.panel-title {
-            margin-top: 0;
-            color: var(--primary);
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
+        /* Definición de anchos de las columnas */
+        .col-1-form { flex: 1; min-width: 300px; max-width: 400px; }
+        .col-2-result { flex: 1; min-width: 300px; max-width: 450px; }
+        .col-3-shap { flex: 1.2; min-width: 350px; } /* El SHAP un poco más ancho */
+
+        h3.panel-title { color: var(--primary); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; font-size: 18px;}
+
+        /* Estilos del Formulario */
+        label { display: block; margin-top: 12px; font-weight: 600; color: var(--text-muted); font-size: 0.85em; }
+        input, select { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #cbd5e0; box-sizing: border-box; font-size: 14px; }
+        button { width: 100%; padding: 12px; margin-top: 25px; border-radius: 6px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; background-color: #5fa0ca; color: white; transition: 0.2s; }
+        button:hover { background-color: #2b6cb0; }
+        button:disabled { background-color: #1b538f; cursor: wait; }
+
+        /* Estilos Resultados */
+        .loading-placeholder { text-align: center; color: #a0aec0; padding: 40px; border: 2px dashed #e2e8f0; border-radius: 12px; }
+        
+        #gaugeContainer { width: 100%; height: 220px; margin-top: -20px; }
+
+        .ai-box {
+            background: #ebf8ff; border-left: 4px solid #4299e1;
+            padding: 15px; margin-top: 10px; border-radius: 4px; font-size: 0.95em;
         }
+        .ai-title { font-weight: bold; color: #2b6cb0; display: block; margin-bottom: 5px; }
 
-        /* --- ESTILOS DEL FORMULARIO (Izquierda) --- */
-        label { display: block; margin-top: 15px; font-weight: 600; color: var(--text-muted); font-size: 0.9em; }
-        input, select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 2px solid #e2e8f0; box-sizing: border-box; font-size: 15px; transition: all 0.2s; background: #fcfcfc; }
-        input:focus, select:focus { outline: none; border-color: var(--primary); background: #fff; }
-        
-        button { width: 100%; padding: 15px; margin-top: 30px; border-radius: 8px; border: none; cursor: pointer; font-size: 17px; font-weight: bold; transition: background 0.2s; }
-        .btn-analyze { background-color: var(--primary); color: white; box-shadow: 0 4px 6px rgba(49, 130, 206, 0.2); }
-        .btn-analyze:hover { background-color: #2b6cb0; transform: translateY(-1px); }
-        .btn-analyze:disabled { background-color: #a0aec0; cursor: not-allowed; transform: none; }
-        
-        /* --- ESTILOS DE RESULTADOS (Derecha) --- */
-        #resultado { 
-            display: none; 
-            animation: slideInRight 0.5s ease forwards;
-        }
+        /* Estilos SHAP */
+        #shapContainer { text-align: center; }
+        img.shap-plot { width: 100%; height: auto; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
-        .loading-placeholder {
-            text-align: center;
-            color: #a0aec0;
-            padding: 50px;
-            font-style: italic;
-            border: 3px dashed #e2e8f0;
-            border-radius: 15px;
-        }
+        /* Animación */
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .result-header { text-align: center; margin-bottom: 30px; }
-        .result-badge { display: inline-block; padding: 10px 25px; border-radius: 50px; color: white; font-weight: 800; margin-bottom: 15px; font-size: 1.3em; letter-spacing: 1px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .safe { background: linear-gradient(135deg, #48bb78, #38a169); }
-        .danger { background: linear-gradient(135deg, #e53e3e, #c53030); }
-        
-        .main-score { font-size: 2.5em; margin: 10px 0; font-weight: bold; }
-
-        .messages { text-align: left; background: #fffaf0; border-left: 5px solid #ed8936; padding: 15px; margin: 25px 0; font-size: 0.95em; color: #744210; border-radius: 6px; }
-        .messages ul { margin: 10px 0 0 0; padding-left: 25px; }
-        .messages li { margin-bottom: 8px; }
-        
-        img.shap-plot { width: 100%; border-radius: 10px; border: 1px solid #e2e8f0; margin-top: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        
-        @keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-
-        @media (max-width: 850px) {
-            .dashboard-wrapper { flex-direction: column; align-items: center; }
-            .panel-box { width: 100%; max-width: 100%; }
-            #resultadoPlaceholder { display: none; }
-        }
     </style>
 </head>
 <body>
@@ -120,62 +85,65 @@
 
     <div class="dashboard-wrapper">
         
-        <div class="panel-box">
-            <h3 class="panel-title">📝 Datos de la Transacción</h3>
+        <div class="panel-box col-1-form">
+            <h3 class="panel-title">1. Datos de Operación</h3>
             <form id="fraudeForm">
-                <label>Monto de Transacción ($)</label>
+                <label>Monto ($)</label>
                 <input type="number" id="amount" value="150" min="1" step="0.01" required>
                 
-                <div style="display: flex; gap: 20px;">
-                    <div style="flex: 1;">
-                        <label>Hora (0-23)</label>
-                        <input type="number" id="hour" value="14" min="0" max="23" required placeholder="Ej: 22">
-                    </div>
-                    <div style="flex: 1;">
-                        <label>Antigüedad (Años)</label>
-                        <input type="number" id="account_age" value="2.5" min="0" step="0.1" required>
-                    </div>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;"><label>Hora (0-23)</label><input type="number" id="hour" value="14" min="0" max="23" required></div>
+                    <div style="flex: 1;"><label>Antigüedad</label><input type="number" id="account_age" value="2.5" min="0" step="0.1" required></div>
                 </div>
-                
+
                 <label>Tipo de Movimiento</label>
                 <select id="type">
                     <option value="Online Purchase">Compra Online</option>
-                    <option value="ATM Withdrawal">Retiro Cajero (ATM)</option>
-                    <option value="POS Purchase">Compra Física (POS)</option>
+                    <option value="ATM Withdrawal">Retiro ATM</option>
+                    <option value="POS Purchase">Compra POS</option>
                     <option value="Bank Transfer">Transferencia Bancaria</option>
                 </select>
-                
-                <label>Segmento del Cliente</label>
+
+                <label>Segmento</label>
                 <select id="segment">
                     <option value="Retail">Retail</option>
                     <option value="Business">Negocio</option>
                     <option value="Corporate">Corporativo</option>
                 </select>
 
-                <button type="submit" class="btn-analyze" id="btnSubmit">Ejecutar Análisis de Riesgo</button>
+                <button type="submit" id="btnSubmit">Analizar Riesgo</button>
             </form>
         </div>
 
-        <div id="resultadoPlaceholder" class="panel-box loading-placeholder">
-            <p style="font-size: 1.2em; margin-bottom: 10px;">👈 Esperando datos...</p>
-            <p>Complete el formulario a la izquierda y haga clic en "Ejecutar Análisis" para ver el reporte de IA aquí.</p>
+        <div class="panel-box col-2-result">
+            <h3 class="panel-title">2. Diagnóstico & IA</h3>
+            
+            <div id="loadingPlaceholder" class="loading-placeholder">
+                <p>Esperando datos...</p>
+            </div>
+
+            <div id="resultContent" style="display: none;" class="fade-in">
+                <div id="gaugeContainer"></div>
+                
+                <div id="aiBox" class="ai-box" style="display:none">
+                    <span class="ai-title">🤖 Conclusión del Sistema:</span>
+                    <p id="aiText" style="margin:0; font-style: italic;"></p>
+                </div>
+            </div>
         </div>
 
-        <div id="resultado" class="panel-box">
-            <h3 class="panel-title">🔍 Resultado del Análisis</h3>
+        <div class="panel-box col-3-shap">
+            <h3 class="panel-title">3. Explicabilidad (SHAP)</h3>
             
-            <div class="result-header">
-                <div id="badgeContainer"></div>
-                <div class="main-score" id="probVal"></div>
-                <p style="color: var(--text-muted); font-weight: 600;">Score de Riesgo Interno: <span id="riskScore"></span>/100</p>
-            </div>
-            
-            <div id="alertBox" class="messages" style="display: none;">
-                <strong>⚠️ Factores de Riesgo Detectados:</strong>
-                <ul id="alertList"></ul>
+            <div id="shapPlaceholder" class="loading-placeholder">
+                <p>El gráfico aparecerá aquí</p>
             </div>
 
-            <div id="shapContainer"></div>
+            <div id="shapContainer" style="display: none;" class="fade-in">
+                <p style="font-size: 0.9em; color: #718096; margin-bottom: 10px;">
+                    ¿Qué factores empujaron el modelo hacia el fraude?
+                </p>
+                </div>
         </div>
 
     </div>
@@ -184,18 +152,18 @@
     document.getElementById('fraudeForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        // UI Elements
         const btn = document.getElementById('btnSubmit');
-        const placeholder = document.getElementById('resultadoPlaceholder');
-        const resultPanel = document.getElementById('resultado');
-        
-        const originalText = btn.innerHTML;
-        btn.innerHTML = "🔄 Procesando con IA...";
-        btn.disabled = true;
+        const loadPlace = document.getElementById('loadingPlaceholder');
+        const shapPlace = document.getElementById('shapPlaceholder');
+        const resContent = document.getElementById('resultContent');
+        const shapContent = document.getElementById('shapContainer');
 
-        // Efecto visual de carga
-        resultPanel.style.display = 'none';
-        placeholder.style.display = 'block';
-        placeholder.innerHTML = "<p>🧠 El modelo está pensando...</p>";
+        // Estado "Cargando"
+        btn.innerHTML = "Analizando..."; btn.disabled = true;
+        loadPlace.style.display = 'block'; shapPlace.style.display = 'block';
+        resContent.style.display = 'none'; shapContent.style.display = 'none';
+        loadPlace.innerHTML = "<p>🔄 Consultando IA...</p>";
 
         const data = {
             amount: parseFloat(document.getElementById('amount').value),
@@ -207,74 +175,64 @@
 
         try {
             const response = await fetch('/analyze', { 
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
             });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || "Error en el servidor");
-            }
-
+            
+            if (!response.ok) throw new Error("Error en servidor");
             const result = await response.json();
-            
-            // --- MOSTRAR RESULTADOS ---
-            placeholder.style.display = 'none';
-            resultPanel.style.display = 'block';
-            
-            // 1. Probabilidad y Score
-            const probPercent = result.probability_percent.toFixed(1);
-            const probValElement = document.getElementById('probVal');
-            probValElement.innerText = probPercent + "%";
-            document.getElementById('riskScore').innerText = result.risk_score_input;
 
-            // 2. Badge y Colores CORREGIDO
-            const badgeDiv = document.getElementById('badgeContainer');
-            if (result.is_fraud) {
-                badgeDiv.innerHTML = `<span class="result-badge danger">Transacción Fraudulenta</span>`;
-                // AQUÍ ESTABA EL ERROR: Ahora usamos el color HEX directamente
-                probValElement.style.color = "#e53e3e"; 
-            } else {
-                badgeDiv.innerHTML = `<span class="result-badge safe">Transacción Aprobada</span>`;
-                // AQUÍ ESTABA EL ERROR: Usamos el color HEX directamente
-                probValElement.style.color = "#48bb78";
+            // Ocultar placeholders y mostrar contenido
+            loadPlace.style.display = 'none'; shapPlace.style.display = 'none';
+            resContent.style.display = 'block'; shapContent.style.display = 'block';
+
+            // 1. MEDIDOR (Gauge)
+            const score = result.probability_percent;
+            let barColor = "#48bb78"; // Verde
+            if(score > 35) barColor = "#ed8936"; // Naranja
+            if(score > 70) barColor = "#e53e3e"; // Rojo
+
+            const gaugeData = [{
+                type: "indicator", mode: "gauge+number", value: score,
+                title: { text: "Nivel de Riesgo", font: { size: 16 } },
+                number: { suffix: "%", font: { size: 26, weight: "bold" } },
+                gauge: {
+                    axis: { range: [null, 100], tickwidth: 1 },
+                    bar: { color: barColor },
+                    bgcolor: "white", borderwidth: 1, bordercolor: "#ccc",
+                    steps: [
+                        { range: [0, 35], color: "rgba(72, 187, 120, 0.2)" },
+                        { range: [35, 70], color: "rgba(237, 137, 54, 0.2)" },
+                        { range: [70, 100], color: "rgba(229, 62, 62, 0.2)" }
+                    ],
+                }
+            }];
+            
+            const layout = { 
+                width: 350, height: 220, margin: { t: 0, b: 0, l: 30, r: 30 },
+                paper_bgcolor: "rgba(0,0,0,0)"
+            };
+            Plotly.newPlot('gaugeContainer', gaugeData, layout, {displayModeBar: false});
+
+            // 2. TEXTO IA
+            if (result.ai_explanation) {
+                document.getElementById('aiBox').style.display = 'block';
+                document.getElementById('aiText').innerText = result.ai_explanation;
             }
 
-            // 3. Alertas
-            const alertBox = document.getElementById('alertBox');
-            const alertList = document.getElementById('alertList');
-            alertList.innerHTML = ""; 
-            
-            if (result.alert_messages && result.alert_messages.length > 0) {
-                alertBox.style.display = 'block';
-                result.alert_messages.forEach(msg => {
-                    const li = document.createElement('li');
-                    li.innerHTML = msg.replace("⚠️", "");
-                    alertList.appendChild(li);
-                });
-            } else {
-                alertBox.style.display = 'none';
-            }
-
-            // 4. Imagen SHAP
-            const shapContainer = document.getElementById('shapContainer');
+            // 3. IMAGEN SHAP
+            const shapDiv = document.getElementById('shapContainer');
             if (result.shap_image_base64) {
-                shapContainer.innerHTML = `<p style="margin-top:30px; font-weight:bold; color: var(--text-muted); border-top: 1px solid #e2e8f0; padding-top: 15px;">📊 Explicación Visual (SHAP):</p>
-                                           <img src="data:image/png;base64,${result.shap_image_base64}" class="shap-plot" alt="Gráfico SHAP" />`;
-            } else {
-                shapContainer.innerHTML = "";
+                // Reconstruimos el contenido del div SHAP
+                shapDiv.innerHTML = `
+                    <p style="font-size: 0.9em; color: #718096; margin-bottom: 15px;">Factores de mayor impacto:</p>
+                    <img src="data:image/png;base64,${result.shap_image_base64}" class="shap-plot fade-in" />
+                `;
             }
 
         } catch (error) {
             alert("Error: " + error.message);
-            placeholder.innerHTML = "<p style='color:red'>❌ Ocurrió un error. Intente nuevamente.</p>";
-            // Restaurar placeholder si falla para que no quede en blanco
-            placeholder.style.display = 'block';
-            resultPanel.style.display = 'none';
         } finally {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
+            btn.innerHTML = "Analizar Riesgo"; btn.disabled = false;
         }
     });
 </script>
