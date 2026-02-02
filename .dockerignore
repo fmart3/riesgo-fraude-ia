@@ -5,3 +5,4 @@ venv
 README.md
 *.pkl
 !modelo_fraude_final.pkl
+!modelo_fraude.pkl
