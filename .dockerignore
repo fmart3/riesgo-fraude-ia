@@ -2,10 +2,17 @@
 .env
 .git
 .gitignore
+.env
+.env.local
+.venv
 
 # 2. Archivos innecesarios en producción
-__pycache__
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
 venv
+env
 README.md
 update_model.py
 
