@@ -1,8 +1,15 @@
-__pycache__
-venv
+# 1. SEGURIDAD (Para que tus llaves no queden dentro de la imagen)
+.env
 .git
 .gitignore
+
+# 2. Archivos innecesarios en producción
+__pycache__
+venv
 README.md
+update_model.py    <-- El script de descarga no se necesita DENTRO del contenedor
+FraudRiskTraining.ipynb <-- No necesitas los notebooks en la app final
+
+# 3. Modelos
 *.pkl
-!modelo_fraude_final.pkl
-!modelo_fraude.pkl
+!modelo_fraude.pkl <-- ¡Importante! Este SÍ debe entrar
