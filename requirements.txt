@@ -8,3 +8,5 @@ matplotlib
 python-multipart
 requests
 xgboost
+pymongo
+certifi

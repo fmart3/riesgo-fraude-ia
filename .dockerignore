@@ -7,9 +7,8 @@
 __pycache__
 venv
 README.md
-update_model.py    <-- El script de descarga no se necesita DENTRO del contenedor
-FraudRiskTraining.ipynb <-- No necesitas los notebooks en la app final
+update_model.py
 
 # 3. Modelos
 *.pkl
-!modelo_fraude.pkl <-- ¡Importante! Este SÍ debe entrar
+!modelo_fraude.pkl
