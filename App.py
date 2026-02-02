@@ -7,9 +7,9 @@ import logging
 
 # --- IMPORTAMOS NUESTROS MÓDULOS ---
 import schemas          # Formulario y validación de datos
-import logic            # Lógica de negocio y reglas duras
+import logic            # Feature Engineering (Risk Score)
 import inference        # Carga del modelo y predicción
-import explainability   # SHAP y explicaciones (incluye la función del LLM)
+import explainability   # SHAP y explicaciones LLM
 
 # 1. Configuración Inicial
 app = FastAPI(title="FraudGuard AI API", version="2.0")
@@ -42,60 +42,56 @@ def startup_event():
 @app.post("/analyze", response_model=schemas.PredictionResponse)
 def analyze_transaction(form_data: schemas.TransactionRequest):
     """
-    Flujo principal:
-    1. Recibe datos del formulario (validados por schemas).
-    2. Aplica lógica de negocio y Risk Score (logic).
-    3. Predice con el modelo IA (inference).
-    4. Genera explicación SHAP y Texto LLM (explainability).
+    Flujo PURO de IA:
+    1. Recibe datos.
+    2. Calcula variables derivadas (Risk Score) sin aplicar vetos.
+    3. Predice usando SOLO el modelo.
+    4. Genera explicación con IA Generativa.
     """
     try:
-        # A. LÓGICA DE NEGOCIO (Manejo)
-        # Calcula el risk_score interno y valida reglas duras
-        processed_data, business_warnings = logic.process_business_rules(form_data)
+        # A. PROCESAMIENTO DE DATOS (Feature Engineering)
+        # Llamamos a logic solo para preparar los datos (Risk Score), 
+        # ignoramos las advertencias (_) para no imponer reglas duras.
+        processed_data, _ = logic.process_business_rules(form_data)
         
-        # B. INFERENCIA (Resultado Modelo)
+        # B. INFERENCIA (Resultado Puro del Modelo)
+        # La probabilidad viene 100% del cerebro matemático del modelo
         probability, is_fraud = inference.predict(processed_data)
         
-        # C. EXPLICABILIDAD (SHAP Visual)
-        # Obtenemos la imagen y un resumen de texto básico de SHAP
+        # C. EXPLICABILIDAD VISUAL (SHAP)
         shap_image, shap_text = explainability.generate_explanation(processed_data)
         
-        # D. EXPLICABILIDAD GENERATIVA (LLM - Gemini)
-        # Preparamos un texto resumen para que la IA entienda el contexto
-        # CORRECCIÓN: Usamos form_data (no input_data)
+        # D. EXPLICABILIDAD TEXTUAL (LLM - Gemini)
+        # Generamos el análisis narrativo para el usuario
         top_factors_text = f"Factores técnicos detectados: {shap_text}. Monto: {form_data.amount}, Hora: {form_data.hour}."
 
-        # CORRECCIÓN: Usamos form_data.dict() y pasamos None en shap_values si no los tenemos crudos, 
-        # o usamos el shap_text como sustituto.
         try:
             explicacion_texto = explainability.generar_explicacion_llm(
                 form_data.dict(), 
-                [], # Pasamos lista vacía si no tenemos los valores crudos a mano, el prompt usará el texto
+                [], 
                 top_factors_text
             )
         except Exception as e:
-            explicacion_texto = "No se pudo generar la explicación por IA."
+            explicacion_texto = "Análisis IA no disponible temporalmente."
             logger.error(f"Error LLM: {e}")
 
         # E. CONSTRUIR RESPUESTA
-        # Combinamos las alertas de negocio
-        final_messages = business_warnings
-        
+        # alert_messages se deja vacío para no mostrar reglas rígidas ("Regla X violada")
+        # Solo devolvemos la probabilidad pura y la explicación de la IA.
         return {
             "probability_percent": probability * 100,
             "is_fraud": is_fraud,
-            "risk_score_input": int(processed_data['risk_score'].iloc[0]), # Convertimos a int
-            "alert_messages": final_messages,
-            "shap_image_base64": shap_image,  # <--- AQUÍ FALTABA LA COMA
-            "ai_explanation": explicacion_texto
+            "risk_score_input": int(processed_data['risk_score'].iloc[0]),
+            "alert_messages": [], # Sin reglas estrictas
+            "shap_image_base64": shap_image,
+            "ai_explanation": explicacion_texto # Este es el mensaje que se mantiene debajo
         }
 
     except ValueError as ve:
-        # Errores de validación de negocio
-        logger.warning(f"Validación de negocio falló: {ve}") 
+        logger.warning(f"Error de validación de datos: {ve}") 
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        logger.error(f"Error crítico: {e}")
+        logger.error(f"Error crítico en análisis: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
 # 5. Endpoint para mostrar el Frontend (HTML)
@@ -103,6 +99,5 @@ def analyze_transaction(form_data: schemas.TransactionRequest):
 def read_root():
     return FileResponse('index.html')
 
-# Ejecución local
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
