@@ -15,7 +15,6 @@ Actualizar modelo: python update_model.py
 
 
 
-Markdown
 # 🛡️ FraudGuard AI: Real-Time Financial Fraud Detection
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
@@ -32,7 +31,7 @@ El sistema cuenta con una **capa lógica de traducción** que permite ingerir da
 
 ## 📐 Arquitectura del Sistema
 
-El flujo de datos conecta al cliente (Postman/Web) con el modelo de IA, pasando por una capa de saneamiento y traducción, asegurando que el modelo numérico (`.pkl`) pueda procesar datos semánticos del mundo real.
+El flujo de datos conecta al cliente (Postman/Web) con el modelo de IA, pasando por una capa de saneamiento y traducción interna en Python.
 
 ```mermaid
 graph TD
@@ -40,12 +39,12 @@ graph TD
     
     subgraph "FraudGuard Service (Docker)"
         API -->|Datos Crudos| Translator{Capa de Traducción}
-        Translator -->|Mapeo: Texto -> Int| Preproc[Sanitización]
-        Preproc -->|Features Numéricas (8 cols)| Model[Modelo ML (.pkl)]
+        Translator -->|Mapeo: Texto a Int| Preproc[Sanitización]
+        Preproc -->|Features Numéricas| Model[Modelo ML .pkl]
         Model -->|Probabilidad de Fraude| API
     end
     
-    API -->|Guarda Predicción + Datos Ricos| DB[(MongoDB Atlas)]
+    API -->|Guarda Predicción y Datos| DB[(MongoDB Atlas)]
     API -->|Respuesta JSON| User
 ```
 
