@@ -15,6 +15,7 @@ Actualizar modelo: python update_model.py
 
 
 
+Markdown
 # 🛡️ FraudGuard AI: Real-Time Financial Fraud Detection
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
@@ -46,4 +47,82 @@ graph TD
     
     API -->|Guarda Predicción + Datos Ricos| DB[(MongoDB Atlas)]
     API -->|Respuesta JSON| User
-```
+🚀 Características Clave
+Traducción Inteligente de Features: Convierte automáticamente términos de negocio (e.g., "ATM Withdrawal") a los códigos numéricos que el modelo aprendió durante el entrenamiento.
+
+Manejo de Shape Mismatch: Rellena y alinea dinámicamente las columnas faltantes para evitar errores de dimensión en el modelo.
+
+Persistencia Híbrida: Guarda en MongoDB tanto la predicción del modelo como los datos originales del usuario (que el modelo ignoró), permitiendo re-entrenamientos futuros más ricos.
+
+API Rápida y Asíncrona: Construida sobre FastAPI para alta performance.
+
+🛠️ Tech Stack
+Lenguaje: Python 3.9
+
+Framework Web: FastAPI + Uvicorn
+
+ML Core: Scikit-Learn / Joblib
+
+Base de Datos: MongoDB Atlas (Nube)
+
+Infraestructura: Docker & Render
+
+⚡ Instalación y Uso Local
+1. Clonar el repositorio
+Bash
+git clone [https://github.com/tu-usuario/fraudguard-ai.git](https://github.com/tu-usuario/fraudguard-ai.git)
+cd fraudguard-ai
+2. Configurar Variables de Entorno
+Crea un archivo .env en la raíz:
+
+Fragmento de código
+MONGO_URI=mongodb+srv://usuario:pass@cluster.mongodb.net/?retryWrites=true&w=majority
+DB_NAME=FraudGuard_DB
+COLLECTION_NAME=predicciones
+3. Ejecutar con Docker (Recomendado)
+Bash
+# Construir la imagen
+docker build -t fraudguard-ai .
+
+# Correr el contenedor
+docker run -p 8000:8000 --env-file .env fraudguard-ai
+🔌 Consumo de la API
+Una vez desplegado (en Render o Local), puedes probar el endpoint principal.
+
+Endpoint: POST /analyze
+
+Ejemplo de Request (JSON)
+El sistema acepta datos de negocio reales:
+
+JSON
+{
+  "amount": 150.0,
+  "transaction_type": "Online Purchase",
+  "account_age": 2.5,
+  "risk_score": 60,
+  "hour": 14,
+  "customer_segment": "Retail",
+  "oldbalanceOrg": 500.00
+}
+Ejemplo de Response
+JSON
+{
+    "prediction_prob": 0.966,
+    "is_fraud": true,
+    "message": "Transacción analizada correctamente"
+}
+📂 Estructura del Proyecto
+Bash
+fraudguard-ai/
+├── App.py              # Punto de entrada FastAPI
+├── inference.py        # Lógica de traducción e inferencia (Cerebro)
+├── modelo_fraude.pkl   # Artefacto del modelo entrenado
+├── Dockerfile          # Configuración de la imagen
+├── requirements.txt    # Dependencias
+└── README.md           # Documentación
+🔄 Flujo de Mantenimiento
+Nuevos Datos: Los datos reales enviados a la API se guardan en MongoDB.
+
+Re-entrenamiento: Periódicamente, se descargan los datos de Mongo para re-entrenar el modelo con nuevas tipologías de fraude.
+
+Despliegue: Se actualiza el archivo .pkl y se hace push a Docker/Render.
