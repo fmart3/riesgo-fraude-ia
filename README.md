@@ -46,3 +46,4 @@ graph TD
     
     API -->|Guarda Predicción + Datos Ricos| DB[(MongoDB Atlas)]
     API -->|Respuesta JSON| User
+```
