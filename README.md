@@ -47,6 +47,8 @@ graph TD
     
     API -->|Guarda Predicción + Datos Ricos| DB[(MongoDB Atlas)]
     API -->|Respuesta JSON| User
+```
+
 🚀 Características Clave
 Traducción Inteligente de Features: Convierte automáticamente términos de negocio (e.g., "ATM Withdrawal") a los códigos numéricos que el modelo aprendió durante el entrenamiento.
 
