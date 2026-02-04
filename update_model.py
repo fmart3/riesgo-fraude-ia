@@ -11,8 +11,8 @@ except ImportError:
 
 # --- CONFIGURACIÓN ---
 USER_EMAIL = "felipe.martinez@cybertrust.one" 
-EXPERIMENT_NAME = "FraudGuard_Experiments"
-OUTPUT_FILE = "modelo_fraude.pkl"
+EXPERIMENT_NAME = "FraudGuard_Project_Final"
+OUTPUT_FILE = "fraude.pkl"
 
 print("--- ACTUALIZADOR DE MODELO (Automático con .env) ---")
 

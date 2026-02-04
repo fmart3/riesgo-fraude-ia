@@ -20,3 +20,4 @@ update_model.py
 # 3. Modelos
 *.pkl
 !modelo_fraude.pkl
+!fraude.pkl

@@ -23,7 +23,7 @@ except Exception as e:
 
 # --- CARGA DEL MODELO ---
 _MODELO_PIPELINE = None
-MODEL_PATH = 'modelo_fraude.pkl'
+MODEL_PATH = 'fraude.pkl'
 
 def load_model_assets():
     global _MODELO_PIPELINE
