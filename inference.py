@@ -49,10 +49,11 @@ def predict(input_data: dict):
         tipo_str = str(raw_type)  # <--- ESTO ASEGURA QUE SEA TEXTO "Online Purchase"
         
         mapping_tipos = {
-            'Online Purchase': 1, 'POS Purchase': 1, # PAYMENT
-            'Bank Transfer': 2,                      # TRANSFER
-            'ATM Withdrawal': 3,                     # CASH_OUT
-            'Cash Advance': 5                        # CASH_IN
+            'Online Purchase': 3,                    # PAYMENT                              
+            'POS Purchase': 2,                       # DEBIT
+            'Bank Transfer': 4,                      # TRANSFER
+            'ATM Withdrawal': 1,                     # CASH_OUT
+            'Cash Advance': 0                        # CASH_IN
         }
         
         # Si viene 'transaction_type', lo usamos. Si no, default a 1.
