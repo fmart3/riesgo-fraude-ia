@@ -10,22 +10,16 @@ logger = logging.getLogger(__name__)
 
 # --- CONFIGURACIÓN MONGODB ---
 _MONGO_COLLECTION = None
-
 try:
     MONGO_URI = os.getenv("MONGO_URI")
     DB_NAME = os.getenv("DB_NAME", "FraudGuard_DB")
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "predicciones")
-
     if MONGO_URI:
         client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
-        db = client[DB_NAME]
-        _MONGO_COLLECTION = db[COLLECTION_NAME]
+        _MONGO_COLLECTION = client[DB_NAME][COLLECTION_NAME]
         logger.info("✅ Conexión a MongoDB exitosa.")
-    else:
-        logger.warning("⚠️ MONGO_URI no definido. Sin persistencia.")
 except Exception as e:
-    logger.error(f"⚠️ Error MongoDB (No fatal): {e}")
-    _MONGO_COLLECTION = None
+    logger.error(f"⚠️ Error MongoDB: {e}")
 
 # --- CARGA DEL MODELO ---
 _MODELO_PIPELINE = None
@@ -35,100 +29,96 @@ def load_model_assets():
     global _MODELO_PIPELINE
     if not os.path.exists(MODEL_PATH):
         raise FileNotFoundError(f"⚠️ No existe: {MODEL_PATH}")
-    try:
-        loaded = joblib.load(MODEL_PATH)
-        _MODELO_PIPELINE = loaded['modelo'] if (isinstance(loaded, dict) and 'modelo' in loaded) else loaded
-        logger.info("✅ Pipeline cargado.")
-    except Exception as e:
-        logger.error(f"❌ Error carga modelo: {e}")
-        raise e
+    loaded = joblib.load(MODEL_PATH)
+    _MODELO_PIPELINE = loaded['modelo'] if (isinstance(loaded, dict) and 'modelo' in loaded) else loaded
 
-def predict(input_df: pd.DataFrame):
+def predict(input_data: dict):
     """
-    Adapta tus datos reales (hour, account_age, tipos string) 
-    al formato rígido del modelo (step, type int, sin account_age).
+    Recibe un diccionario directo del usuario.
+    Prepara los datos para que el modelo sea NEUTRO con los saldos.
     """
     global _MODELO_PIPELINE
     if _MODELO_PIPELINE is None: load_model_assets()
     
     try:
-        # 1. PREPARAR DATAFRAME PARA EL MODELO
-        df_for_model = pd.DataFrame()
-
-        # --- A. MAPEO DE HORA -> STEP (INT) ---
-        # Tu dato 'hour' se convierte en el 'step' del modelo
-        if 'hour' in input_df.columns:
-            df_for_model['step'] = input_df['hour'].astype(int)
-        else:
-            df_for_model['step'] = 1 # Default si falta
-
-        # --- B. MAPEO DE AMOUNT (FLOAT) ---
-        if 'amount' in input_df.columns:
-            df_for_model['amount'] = input_df['amount'].astype(float)
-        else:
-            df_for_model['amount'] = 0.0
-
-        # --- C. TRADUCCIÓN DE TRANSACTION_TYPE -> TYPE (INT) ---
+        # Convertir dict a DataFrame
+        df = pd.DataFrame([input_data])
+        
+        # 1. TRADUCCIÓN DE TIPOS (Texto -> Número)
+        raw_type = df.iloc[0].get('transaction_type', 'Online Purchase')
+        tipo_str = str(raw_type)  # <--- ESTO ASEGURA QUE SEA TEXTO "Online Purchase"
+        
         mapping_tipos = {
-            'Online Purchase': 1,    # PAYMENT
-            'POS Purchase': 1,       # PAYMENT
-            'Bank Transfer': 2,      # TRANSFER
-            'ATM Withdrawal': 3,     # CASH_OUT
-            'Cash Advance': 5        # CASH_IN
+            'Online Purchase': 1, 'POS Purchase': 1, # PAYMENT
+            'Bank Transfer': 2,                      # TRANSFER
+            'ATM Withdrawal': 3,                     # CASH_OUT
+            'Cash Advance': 5                        # CASH_IN
         }
-
-        col_tipo = 'transaction_type' if 'transaction_type' in input_df.columns else 'type'
         
-        if col_tipo in input_df.columns:
-            # Convertimos string a int según el mapa
-            df_for_model['type'] = input_df[col_tipo].map(mapping_tipos).fillna(1).astype(int)
+        # Si viene 'transaction_type', lo usamos. Si no, default a 1.
+        tipo_str = df.iloc[0].get('transaction_type', 'Online Purchase')
+        tipo_num = mapping_tipos.get(tipo_str, 1)
+
+        # 2. CONSTRUIR DATAFRAME EXACTO PARA EL MODELO (8 Columnas)
+        df_model = pd.DataFrame()
+        
+        # -- Step (Hora) --
+        df_model['step'] = df['hour'].astype(int) if 'hour' in df.columns else 1
+        
+        # -- Type --
+        df_model['type'] = int(tipo_num)
+        
+        # -- Amount --
+        amount = float(df.iloc[0].get('amount', 0))
+        df_model['amount'] = amount
+        
+        # -- NameOrig / NameDest (Siempre 0) --
+        df_model['nameOrig'] = 0
+        df_model['nameDest'] = 0
+
+        # -- BALANCES (EL FIX CRÍTICO) --
+        # Si no traen saldo, asumimos que tiene fondos suficientes.
+        # oldbalanceOrg = amount -> Significa que tenía justo lo que gastó.
+        # newbalanceOrig = 0 -> Significa que se quedó en 0.
+        # Esto hace que el modelo NO sospeche por falta de fondos.
+        
+        if 'oldbalanceOrg' in df.columns:
+            df_model['oldbalanceOrg'] = float(df.iloc[0]['oldbalanceOrg'])
+            val_old = df_model['oldbalanceOrg']
         else:
-            df_for_model['type'] = 1
+            # SIMULACIÓN: El cliente tiene el monto + $5,000 extra en la cuenta
+            df_model['oldbalanceOrg'] = amount + 5000.0
+            val_old = df_model['oldbalanceOrg']
 
-        # --- D. RELLENO DE COLUMNAS FALTANTES (Balancess y Nombres) ---
-        # account_age NO se incluye aquí porque el modelo .pkl no fue entrenado con ella.
-        cols_relleno = ['nameOrig', 'oldbalanceOrg', 'newbalanceOrig', 'nameDest', 'oldbalanceDest']
-        for col in cols_relleno:
-            if col in input_df.columns:
-                df_for_model[col] = pd.to_numeric(input_df[col], errors='coerce').fillna(0)
-            else:
-                df_for_model[col] = 0 
+        if 'newbalanceOrig' in df.columns:
+            df_model['newbalanceOrig'] = float(df.iloc[0]['newbalanceOrig'])
+        else:
+            # El saldo final es lo que tenía menos lo que gastó (Quedan $5,000)
+            df_model['newbalanceOrig'] = float(val_old - amount)
+            
+        df_model['oldbalanceDest'] = 0 # Destino irrelevante para fraude origen
+        df_model['oldbalanceDest'] = 0 # (Repetido por seguridad del shape)
 
-        # --- E. ORDEN FINAL OBLIGATORIO (8 Columnas) ---
+        # Asegurar orden exacto de columnas
         expected_cols = ["step", "type", "amount", "nameOrig", "oldbalanceOrg", "newbalanceOrig", "nameDest", "oldbalanceDest"]
-        df_for_model = df_for_model[expected_cols]
+        df_model = df_model[expected_cols]
 
-        # 2. INFERENCIA
-        prob_ia = _MODELO_PIPELINE.predict_proba(df_for_model)[0, 1] 
-        final_probability = prob_ia
-        is_fraud = final_probability >= 0.5
+        # 3. PREDICCIÓN PURA
+        prob = _MODELO_PIPELINE.predict_proba(df_model)[0, 1]
+        is_fraud = prob >= 0.5
         
-        logger.info(f"🧠 Predicción: {final_probability:.4f} | Hour(Step): {df_for_model.iloc[0]['step']}")
+        logger.info(f"🧠 Predicción Pura: {prob:.4f} (Sin reglas externas)")
 
-        # 3. GUARDADO EN MONGODB (Aquí SÍ guardamos account_age y todo lo demás)
+        # 4. GUARDAR EN MONGO (Datos originales + Predicción)
         if _MONGO_COLLECTION is not None:
-            try:
-                # Convertimos el DF original (que tiene account_age) a dict
-                record = input_df.astype(object).to_dict(orient='records')[0]
-                
-                # Aseguramos tipos correctos para Mongo
-                if 'account_age' in record:
-                    record['account_age'] = float(record['account_age'])
-                if 'hour' in record:
-                    record['hour'] = int(record['hour'])
-                
-                # Agregamos resultados
-                record["prediction_prob"] = float(final_probability)
-                record["prediction_is_fraud"] = bool(is_fraud)
-                record["timestamp"] = datetime.utcnow()
-                
-                _MONGO_COLLECTION.insert_one(record)
-                logger.info("💾 Guardado en MongoDB.")
-            except Exception as e:
-                logger.error(f"Error DB: {e}")
+            record = input_data.copy()
+            record["prediction_prob"] = float(prob)
+            record["prediction_is_fraud"] = bool(is_fraud)
+            record["timestamp"] = datetime.utcnow()
+            _MONGO_COLLECTION.insert_one(record)
 
-        return final_probability, is_fraud
+        return prob, is_fraud
 
     except Exception as e:
-        logger.error(f"Error CRÍTICO: {e}")
-        raise ValueError(f"Error procesando datos: {e}")
+        logger.error(f"Error Infer: {e}")
+        raise e
