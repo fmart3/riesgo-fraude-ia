@@ -1,5 +1,9 @@
 # 1. Imagen base ligera de Python
-FROM python:3.11-slim
+FROM python:3.9-slim
+
+# Evita que Python cree archivos .pyc y fuerza logs en tiempo real
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # 2. Definir directorio de trabajo dentro del contenedor
 WORKDIR /app
@@ -17,9 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 5. Copiar los archivos del código fuente
 COPY . .
 
-# 6. Exponer el puerto estándar de FastAPI
-EXPOSE 8000
-
-# 7. Comando de arranque: Uvicorn servidor de producción
+# 6. Comando de arranque: Uvicorn servidor de producción
 # host 0.0.0.0 permite conexiones externas (desde tu PC al contenedor)
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
