@@ -5,7 +5,8 @@ import time
 
 # URL de tu API en producción
 # NOTA: Si usas el plan gratuito de Render, la primera petición puede tardar 1 minuto en despertar.
-URL = "https://fraudgaurd-ai.onrender.com/analyze"
+#URL = "https://fraudgaurd-ai.onrender.com/analyze"
+URL = "http://127.0.0.1:8000/analyze"
 
 # 1. Definimos las variables que el modelo conoce
 tipos = ['ATM Withdrawal', 'Bank Transfer', 'Online Purchase', 'POS Purchase']

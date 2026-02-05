@@ -18,7 +18,7 @@ NOMBRE_MODELO = "Fraud_Detector_Production_fix"
 FULL_MODEL_NAME = f"{CATALOGO}.{ESQUEMA}.{NOMBRE_MODELO}"
 
 ALIAS = "Champion"         # La etiqueta que le pusimos al ganador
-OUTPUT_FILE = "fraude_fix.pkl" # Nombre del archivo local
+OUTPUT_FILE = "fraude.pkl" # Nombre del archivo local
 
 print("--- ACTUALIZADOR DE MODELO (MODO UNITY CATALOG) ---")
 
