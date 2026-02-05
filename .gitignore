@@ -14,6 +14,7 @@ venv/
 # ...PERO obligamos a que SÍ se suba el modelo oficial para que Render lo vea
 !modelo_fraude.pkl
 !fraude.pkl
+!fraude_fix.pkl
 
 # 4. Sistema
 .DS_Store
