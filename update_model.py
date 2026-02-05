@@ -1,20 +1,26 @@
 import os
 import sys
+import shutil
 
-# --- NUEVO: Carga de secretos desde .env ---
+# --- CARGA DE SECRETOS ---
 try:
     from dotenv import load_dotenv
-    load_dotenv() # <--- Esto lee el archivo .env y carga las variables
-    print("🔐 Secretos cargados desde .env localmente.")
+    load_dotenv() 
+    print("🔐 Secretos cargados desde .env.")
 except ImportError:
-    print("⚠️ No se tiene 'python-dotenv'. Si estás en Docker o Producción, asegúrate de tener las variables de entorno configuradas en el sistema.")
+    print("⚠️ 'python-dotenv' no instalado. Usando variables de entorno del sistema.")
 
 # --- CONFIGURACIÓN ---
-USER_EMAIL = "felipe.martinez@cybertrust.one" 
-EXPERIMENT_NAME = "FraudGuard_Project_Final"
-OUTPUT_FILE = "fraude.pkl"
+# 🚨 IMPORTANTE: Estos deben coincidir con lo que usaste en Databricks
+CATALOGO = "phishing"      # <--- Tu catálogo
+ESQUEMA = "default"        # <--- Tu esquema
+NOMBRE_MODELO = "Fraud_Detector_Production"
+FULL_MODEL_NAME = f"{CATALOGO}.{ESQUEMA}.{NOMBRE_MODELO}"
 
-print("--- ACTUALIZADOR DE MODELO (Automático con .env) ---")
+ALIAS = "Champion"         # La etiqueta que le pusimos al ganador
+OUTPUT_FILE = "fraude.pkl" # Nombre del archivo local
+
+print("--- ACTUALIZADOR DE MODELO (MODO UNITY CATALOG) ---")
 
 try:
     import mlflow
@@ -22,63 +28,49 @@ try:
     import joblib
     print("✅ Librerías cargadas.")
 except ImportError:
-    print("❌ Faltan librerías. Ejecuta: pip install mlflow pandas python-dotenv")
+    print("❌ Faltan librerías. Ejecuta: pip install mlflow pandas python-dotenv joblib")
     sys.exit(1)
 
-def download_latest_model():
-    # 1. Validar Credenciales (Ahora vienen del .env)
+def download_champion_model():
+    # 1. Validar Credenciales
     token = os.environ.get("DATABRICKS_TOKEN")
     host = os.environ.get("DATABRICKS_HOST")
     
     if not token or not host:
-        print("❌ ERROR: Faltan credenciales.")
-        print("   Asegúrate de haber creado el archivo .env con DATABRICKS_HOST y DATABRICKS_TOKEN.")
+        print("❌ ERROR: Faltan credenciales DATABRICKS_HOST o DATABRICKS_TOKEN.")
         return
 
     print(f"🔄 Conectando a Databricks ({host})...")
+    
+    # 2. Configurar MLflow para Unity Catalog
     mlflow.set_tracking_uri("databricks")
+    mlflow.set_registry_uri("databricks-uc") # <--- CLAVE: Activar modo UC
     
     try:
-        # 2. Encontrar el Experimento
-        experiment_path = f"/Users/{USER_EMAIL}/{EXPERIMENT_NAME}"
-        print(f"🔍 Buscando experimento: {experiment_path}")
+        # 3. Construir la URI del Modelo Champion
+        # Formato: models:/<catalogo>.<esquema>.<modelo>@<alias>
+        model_uri = f"models:/{FULL_MODEL_NAME}@{ALIAS}"
         
-        experiment = mlflow.get_experiment_by_name(experiment_path)
-        if experiment is None:
-            print("❌ No se encontró el experimento. Verifica el email y el nombre.")
-            return
-
-        # 3. Buscar la ÚLTIMA corrida exitosa
-        print("🔍 Buscando el último entrenamiento exitoso...")
-        df_runs = mlflow.search_runs(
-            experiment_ids=[experiment.experiment_id],
-            filter_string="status = 'FINISHED'",
-            order_by=["start_time DESC"],
-            max_results=1
-        )
+        print(f"🔍 Buscando modelo certificado: {model_uri}")
+        print(f"📥 Descargando Pipeline completo... (esto incluye el preprocesador)")
         
-        if df_runs.empty:
-            print("❌ No se encontraron corridas exitosas.")
-            return
-            
-        latest_run_id = df_runs.iloc[0].run_id
-        print(f"   ✅ Última corrida encontrada. ID: {latest_run_id}")
-
-        # 4. Descargar
-        model_uri = f"runs:/{latest_run_id}/model"
-        print(f"📥 Descargando modelo... (puede tardar un poco)")
+        # 4. Cargar el Pipeline directamente desde Databricks
+        loaded_pipeline = mlflow.sklearn.load_model(model_uri)
         
-        loaded_model = mlflow.sklearn.load_model(model_uri)
-        
-        # 5. Guardar
-        joblib.dump(loaded_model, OUTPUT_FILE)
+        # 5. Guardar en disco local
+        joblib.dump(loaded_pipeline, OUTPUT_FILE)
         
         print("-" * 50)
-        print(f"🎉 ¡LISTO! {OUTPUT_FILE} actualizado correctamente.")
+        print(f"🎉 ¡ÉXITO! Se ha descargado la versión '{ALIAS}' de Unity Catalog.")
+        print(f"📂 Archivo guardado: {OUTPUT_FILE}")
+        print("   (Ahora tu app puede recibir datos crudos, el pipeline los transformará)")
         print("-" * 50)
 
     except Exception as e:
-        print(f"\n❌ ERROR CRÍTICO:\n{e}")
+        print(f"\n❌ ERROR DE DESCARGA:\n{e}")
+        print("\nPosibles causas:")
+        print("1. ¿Pusiste el nombre correcto del catálogo ('phishing')?")
+        print("2. ¿Tu token tiene permisos de lectura sobre ese modelo?")
 
 if __name__ == "__main__":
-    download_latest_model()
+    download_champion_model()
