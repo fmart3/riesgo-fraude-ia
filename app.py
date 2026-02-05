@@ -1,10 +1,14 @@
 import os
 import logging
 import uvicorn
+from datetime import datetime # <--- IMPORTANTE: Para guardar fecha y hora
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse # <--- IMPORTANTE
-from fastapi.staticfiles import StaticFiles # <--- IMPORTANTE
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+# --- NUEVO: Importar MongoDB ---
+from pymongo import MongoClient
 
 # Importaciones locales
 import schemas
@@ -17,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Configuración de la App
 app = FastAPI(title="FraudGuard AI Dashboard", version="3.0")
 
-# Configuración CORS (Permite que funcione desde cualquier origen)
+# Configuración CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,59 +30,88 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- CARGA DEL MODELO AL INICIO ---
+# --- 1. CONEXIÓN A MONGODB ---
+# Buscamos la URL en las variables de entorno (En Render debes configurar esta variable)
+MONGO_URI = os.getenv("MONGO_URI")
+db_collection = "predicciones"
+
 @app.on_event("startup")
 def startup_event():
+    global db_collection
+    
+    # A) Cargar Modelo
     try:
         inference.load_model_assets()
-        logger.info("✅ Modelo cargado correctamente en memoria.")
+        logger.info("✅ Modelo cargado correctamente.")
     except Exception as e:
-        logger.error(f"❌ Error crítico cargando modelo: {e}")
+        logger.error(f"❌ Error cargando modelo: {e}")
 
-# --- RUTA PRINCIPAL (FRONTEND) ---
-# Antes devolvía JSON, ahora devuelve tu HTML
+    # B) Conectar a Base de Datos
+    if MONGO_URI:
+        try:
+            client = MongoClient(MONGO_URI)
+            db = client.get_database("FraudGuardDB") # Nombre de tu Base de Datos
+            db_collection = db.get_collection("transactions") # Nombre de tu Colección
+            logger.info("✅ Conexión a MongoDB exitosa.")
+        except Exception as e:
+            logger.error(f"⚠️ Error conectando a MongoDB: {e}")
+    else:
+        logger.warning("⚠️ No se encontró MONGO_URI. Los datos NO se guardarán.")
+
+# --- RUTA PRINCIPAL ---
 @app.get("/")
 def read_root():
-    # Asegúrate de que index.html esté en la misma carpeta que app.py
     if os.path.exists("index.html"):
         return FileResponse("index.html")
-    return {"error": "Archivo index.html no encontrado. Súbelo al servidor."}
+    return {"message": "Frontend no encontrado"}
 
-# --- ENDPOINT DE ANÁLISIS (BACKEND) ---
+# --- RUTA DE ANÁLISIS ---
 @app.post("/analyze", response_model=schemas.PredictionResponse)
 def analyze_transaction(form_data: schemas.TransactionRequest):
-    """
-    Recibe los datos del formulario web, consulta al modelo y devuelve resultado.
-    """
     try:
-        # 1. Convertir Pydantic a Diccionario
+        # 1. Convertir datos
         data_dict = form_data.dict()
         
-        # 2. Obtener predicción del modelo (inference.py ya corregido)
+        # 2. Predecir
         probability, is_fraud = inference.predict(data_dict)
         
-        # 3. Construir respuesta para el Frontend
-        # Nota: Puedes agregar lógica extra aquí si quieres mensajes personalizados
-        return {
+        # 3. Preparar Respuesta
+        response_payload = {
             "probability_percent": round(probability * 100, 2),
             "is_fraud": is_fraud,
-            "risk_score_input": int(probability * 100), # Usamos la prob como score
+            "risk_score_input": int(probability * 100),
             "alert_messages": ["Transacción de Alto Riesgo detectada"] if is_fraud else [],
-            "shap_image_base64": None, # Si reactivas la explicabilidad, va aquí
-            "ai_explanation": f"El modelo calculó una probabilidad de fraude del {probability*100:.1f}% basado en patrones históricos."
+            "shap_image_base64": None,
+            "ai_explanation": f"Probabilidad calculada: {probability*100:.1f}%"
         }
+
+        # --- 4. GUARDAR EN MONGODB (NUEVO) ---
+        if db_collection is not None:
+            try:
+                # Creamos el documento a guardar
+                record = {
+                    "timestamp": datetime.utcnow(),     # Cuándo ocurrió
+                    "input_data": data_dict,            # Qué datos envió el usuario
+                    "prediction": {                     # Qué dijo la IA
+                        "is_fraud": is_fraud,
+                        "probability": probability
+                    },
+                    "source": "web_app"
+                }
+                # Insertamos
+                db_collection.insert_one(record)
+                logger.info("💾 Transacción guardada en MongoDB.")
+            except Exception as e:
+                logger.error(f"❌ Error guardando en DB: {e}")
+        
+        return response_payload
 
     except Exception as e:
         logger.error(f"Error en endpoint /analyze: {e}")
-        # En caso de error, devolvemos una respuesta segura
         return {
             "probability_percent": 0.0,
             "is_fraud": False,
             "risk_score_input": 0,
-            "alert_messages": ["Error interno al procesar"],
-            "ai_explanation": "Error en el servidor."
+            "alert_messages": ["Error interno"],
+            "ai_explanation": "Error"
         }
-
-if __name__ == "__main__":
-    # Configuración para ejecución local
-    uvicorn.run(app, host="0.0.0.0", port=5000)

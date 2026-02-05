@@ -58,10 +58,6 @@ def generate_explanation(processed_data):
         return None, "Error generando gráfico."
 
 def generar_explicacion_llm(datos_dict, shap_values, resumen_texto):
-    """
-    Sustituto lógico del LLM (Rule-Based System).
-    Genera una explicación determinista basada en reglas de negocio.
-    """
     try:
         # Extraemos variables para facilitar la lectura
         monto = float(datos_dict.get('amount', 0))

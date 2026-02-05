@@ -10,3 +10,7 @@ requests
 xgboost
 pymongo
 certifi
+pydantic
+python-multipart
+requests
+dnspython
