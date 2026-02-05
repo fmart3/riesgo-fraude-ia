@@ -16,6 +16,8 @@ venv
 env
 README.md
 update_model.py
+check_model_inputs.py
+test_bruteforce.py
 
 # 3. Modelos
 *.pkl

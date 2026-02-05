@@ -3,7 +3,8 @@ import json
 import itertools
 
 # URL de tu API local
-URL = "https://fraudgaurd-ai.onrender.com/analyze"
+#URL = "https://fraudgaurd-ai.onrender.com/analyze"
+URL = "http://127.0.0.1:8000/analyze"
 
 # 1. Definimos las variables que el modelo conoce (según tu output anterior)
 tipos = ['ATM Withdrawal', 'Bank Transfer', 'Online Purchase', 'POS Purchase']
@@ -36,13 +37,11 @@ for t, s, h, a in combinaciones:
         prob = data.get("probability_percent", 0.0)
         
         # Filtro visual: Solo mostramos si hay ALGÚN riesgo (> 1%)
-        print(f"🚨 {t:<20} {s:<12} {h:<5} ${a:<9} | {prob:.5f}%")
-        #if prob > 1.0:
-        #    print(f"🚨 {t:<20} {s:<12} {h:<5} ${a:<9} | {prob:.1f}%   ¡FRAUDE DETECTADO!")
-        #    fraud_found = True
-        # Descomenta esto si quieres ver todo (incluso los ceros)
-        # else:
-        #    print(f"   {t:<20} {s:<12} {h:<5} ${a:<9} | {prob:.1f}%")
+        if prob > 1.0:
+           print(f"🚨 {t:<20} {s:<12} {h:<5} ${a:<9} | {prob:.2f}%   ¡FRAUDE DETECTADO!")
+           fraud_found = True
+        else:
+           print(f"   {t:<20} {s:<12} {h:<5} ${a:<9} | {prob:.1f}%")
             
     except Exception as e:
         print(f"❌ Error de conexión: {e}")

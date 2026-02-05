@@ -17,3 +17,7 @@ venv/
 
 # 4. Sistema
 .DS_Store
+
+# 5. Python de prueba
+check_model_inputs.py
+test_bruteforce.py
