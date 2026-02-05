@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 # --- CARGA DEL MODELO ---
 _MODELO_PIPELINE = None
-MODEL_PATH = 'fraude.pkl'
+MODEL_PATH = 'fraude_fix.pkl'
 
 def load_model_assets():
     global _MODELO_PIPELINE
