@@ -13,6 +13,7 @@ from pymongo import MongoClient
 # Importaciones locales
 import schemas
 import inference
+import explainability
 
 # Configuración de Logs
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +34,7 @@ app.add_middleware(
 # --- 1. CONEXIÓN A MONGODB ---
 # Buscamos la URL en las variables de entorno (En Render debes configurar esta variable)
 MONGO_URI = os.getenv("MONGO_URI")
-db_collection = "predicciones"
+db_collection = None
 
 @app.on_event("startup")
 def startup_event():
@@ -51,7 +52,7 @@ def startup_event():
         try:
             client = MongoClient(MONGO_URI)
             db = client.get_database("FraudGuardDB") # Nombre de tu Base de Datos
-            db_collection = db.get_collection("transactions") # Nombre de tu Colección
+            db_collection = db.get_collection("transacciones") # Nombre de tu Colección
             logger.info("✅ Conexión a MongoDB exitosa.")
         except Exception as e:
             logger.error(f"⚠️ Error conectando a MongoDB: {e}")
@@ -69,40 +70,24 @@ def read_root():
 @app.post("/analyze", response_model=schemas.PredictionResponse)
 def analyze_transaction(form_data: schemas.TransactionRequest):
     try:
-        # 1. Convertir datos
         data_dict = form_data.dict()
-        
-        # 2. Predecir
         probability, is_fraud = inference.predict(data_dict)
-        
-        # 3. Preparar Respuesta
+        shap_image, text_explanation = explainability.generate_explanation(data_dict)
+
         response_payload = {
             "probability_percent": round(probability * 100, 2),
             "is_fraud": is_fraud,
             "risk_score_input": int(probability * 100),
             "alert_messages": ["Transacción de Alto Riesgo detectada"] if is_fraud else [],
-            "shap_image_base64": None,
-            "ai_explanation": f"Probabilidad calculada: {probability*100:.1f}%"
+            "shap_image_base64": shap_image, 
+            "ai_explanation": text_explanation 
         }
 
-        # --- 4. GUARDAR EN MONGODB (NUEVO) ---
+        # 5. Guardar en MongoDB (Si tienes la parte de DB)
         if db_collection is not None:
-            try:
-                # Creamos el documento a guardar
-                record = {
-                    "timestamp": datetime.utcnow(),     # Cuándo ocurrió
-                    "input_data": data_dict,            # Qué datos envió el usuario
-                    "prediction": {                     # Qué dijo la IA
-                        "is_fraud": is_fraud,
-                        "probability": probability
-                    },
-                    "source": "web_app"
-                }
-                # Insertamos
-                db_collection.insert_one(record)
-                logger.info("💾 Transacción guardada en MongoDB.")
-            except Exception as e:
-                logger.error(f"❌ Error guardando en DB: {e}")
+            # Añadir timestamp a los datos
+            data_dict["timestamp"] = datetime.now()
+            db_collection.insert_one(data_dict)
         
         return response_payload
 
@@ -113,5 +98,5 @@ def analyze_transaction(form_data: schemas.TransactionRequest):
             "is_fraud": False,
             "risk_score_input": 0,
             "alert_messages": ["Error interno"],
-            "ai_explanation": "Error"
+            "ai_explanation": "Error generando análisis."
         }

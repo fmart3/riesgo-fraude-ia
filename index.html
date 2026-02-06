@@ -202,12 +202,19 @@
         <div id="colShap" class="panel-box col-3-shap hidden">
             <h3 class="panel-title">3. Explicabilidad (SHAP)</h3>
             
-            <div id="shapContainer">
-                <p style="font-size: 0.95em; color: #718096; margin-bottom: 15px; width: 100%; text-align: left;">
-                    <b>Factores de Influencia:</b><br>
-                    ¿Qué empujó al modelo a esta decisión?
-                </p>
+            <div class="col-md-6 fade-in" style="animation-delay: 0.4s;">
+                <div class="card p-4 h-100">
+                    <h3 class="text-center mb-3" style="color: var(--primary);">🔍 ¿Por qué esta decisión?</h3>
+                    
+                    <div id="shapContainer" class="d-flex justify-content-center align-items-center" style="min-height: 250px; background: #f8f9fa; border-radius: 10px;">
+                        <p class="text-muted">El análisis de factores aparecerá aquí.</p>
+                    </div>
+
+                    <div id="aiBox" class="mt-3 p-3" style="display: none; background-color: #eef2f7; border-left: 4px solid var(--primary); border-radius: 4px;">
+                        <p id="aiText" style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.5;"></p>
+                    </div>
                 </div>
+            </div>
         </div>
 
     </div>
@@ -306,17 +313,26 @@
             }
 
             // C. IMAGEN SHAP
-            const shapImage = result.shap_image_base64 || result.shap_plot;
+            const shapImage = result.shap_image_base64;
             const shapDiv = document.getElementById('shapContainer');
-            
-            const existingImg = shapDiv.querySelector('img.shap-plot');
-            if (existingImg) existingImg.remove();
+            shapDiv.innerHTML = ''; // Limpiar lo anterior
 
             if (shapImage) {
                 const img = document.createElement('img');
                 img.src = "data:image/png;base64," + shapImage;
-                img.className = "shap-plot"; // Ya no necesita fade-in aquí porque toda la columna se anima
+                img.className = "img-fluid"; // Clase de Bootstrap para que se ajuste
+                img.style.maxHeight = "300px";
                 shapDiv.appendChild(img);
+            }
+
+            // D. TEXTO EXPLICATIVO (NUEVO)
+            if (result.ai_explanation) {
+                document.getElementById('aiBox').style.display = 'block';
+                document.getElementById('aiText').innerText = result.ai_explanation;
+                
+                // Cambiar color del borde según si es fraude o no
+                const boxColor = result.is_fraud ? '#dc3545' : '#198754'; // Rojo o Verde
+                document.getElementById('aiBox').style.borderLeftColor = boxColor;
             }
 
         } catch (error) {
