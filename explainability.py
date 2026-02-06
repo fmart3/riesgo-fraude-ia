@@ -62,7 +62,7 @@ def generate_explanation(data_dict):
 
         # --- CAMBIO AQUÍ: AUMENTAMOS EL TAMAÑO DE LA FIGURA ---
         # Antes era (6, 4), ahora es (10, 6) para que sea más grande y legible.
-        plt.figure(figsize=(10, 6)) 
+        plt.figure(figsize=(8, 6)) 
         
         bars = plt.barh(features, values, color=colors, height=0.6)
         plt.axvline(0, color='black', linewidth=0.8, linestyle='--')
