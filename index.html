@@ -320,9 +320,19 @@
             if (shapImage) {
                 const img = document.createElement('img');
                 img.src = "data:image/png;base64," + shapImage;
-                img.className = "img-fluid"; // Clase de Bootstrap para que se ajuste
-                img.style.maxHeight = "300px";
+                img.className = "img-fluid shadow-sm rounded"; // Agregué shadow y rounded para estética
+                
+                // --- CAMBIO AQUÍ: AUMENTAMOS LA ALTURA MÁXIMA PERMITIDA ---
+                // Antes era "300px", ahora permitimos hasta "550px"
+                img.style.maxHeight = "550px"; 
+                img.style.width = "auto"; // Asegura que el ancho se ajuste proporcionalmente
+                
                 shapDiv.appendChild(img);
+                // Removemos la altura mínima fija del contenedor si existe, para que se adapte a la imagen
+                shapDiv.style.minHeight = "auto"; 
+            } else {
+                shapDiv.innerHTML = '<p class="text-muted">No se pudo generar el gráfico explicativo.</p>';
+                shapDiv.style.minHeight = "250px"; // Mantener altura si falla
             }
 
             // D. TEXTO EXPLICATIVO (NUEVO)
