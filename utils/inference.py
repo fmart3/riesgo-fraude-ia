@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np # <--- Necesario para operaciones numéricas
 import logging
 import os
+from enum import Enum
 
 # --- IMPORTACIONES VITALES PARA DESERIALIZAR EL PIPELINE ---
 # Aunque no las uses explícitamente, joblib las necesita para reconstruir el modelo .pkl
@@ -44,32 +45,44 @@ def predict(input_data: dict):
         # Notebook: cols_usuario = ['amount', 'hour', 'account_age', 'transaction_type', 'customer_segment']
         column_order = ['amount', 'hour', 'account_age', 'transaction_type', 'customer_segment']
 
-        # 2. Construir el DataFrame
-        # Aseguramos que los tipos de datos sean correctos
+        # 2. EXTRACCIÓN SEGURA DE STRINGS (Fix del Enum)
+        # Si viene de Pydantic, es un Enum. Usamos .value para sacar el texto real.
+        t_type = input_data['transaction_type']
+        if isinstance(t_type, Enum):
+            t_type = t_type.value
+        else:
+            t_type = str(t_type)
+
+        c_segment = input_data['customer_segment']
+        if isinstance(c_segment, Enum):
+            c_segment = c_segment.value
+        else:
+            c_segment = str(c_segment)
+
+        # 3. Construir DataFrame
         df_input = pd.DataFrame([{
             'amount': float(input_data['amount']),
             'hour': int(input_data['hour']),
             'account_age': float(input_data['account_age']),
-            'transaction_type': str(input_data['transaction_type']), 
-            'customer_segment': str(input_data['customer_segment'])
+            'transaction_type': t_type,      # <--- Texto limpio ("ATM Withdrawal")
+            'customer_segment': c_segment    # <--- Texto limpio ("Retail")
         }])
-        
+
+        # 4. DEBUG: Ver qué está entrando realmente (Mira esto en los logs de Render)
+        print(f"🔍 DEBUG INFERENCIA: Type='{t_type}', Segment='{c_segment}', Amount={df_input['amount'].iloc[0]}")
+
+        # 5. APLICAR LOGARITMO (Vital)
+        # El modelo fue entrenado con log, si no lo pones, el monto domina todo.
         df_input['amount'] = np.log1p(df_input['amount'])
 
-        # 3. Reordenar columnas para evitar errores silenciosos
+        # 6. Reordenar y Predecir
         df_for_model = df_input[column_order]
-
-        # 4. PREDICCIÓN
-        # El pipeline hace todo: IsolationForest -> Nuevas Columnas -> Scaling -> Predicción
-        # predict_proba devuelve [[prob_0, prob_1]]
         prob_ia = _MODELO_PIPELINE.predict_proba(df_for_model)[0, 1]
         
-        # 5. Decisión
-        # Usamos 0.50 como corte estándar
-        is_fraud = prob_ia > 0.50
-        
-        return prob_ia, bool(is_fraud)
+        # Umbral optimizado
+        is_fraud = prob_ia >= 0.5071 
 
+        return prob_ia, bool(is_fraud)
     except Exception as e:
         logger.error(f"❌ Error en predicción: {e}")
         # En caso de pánico, devolvemos valores seguros
