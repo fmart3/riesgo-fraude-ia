@@ -320,15 +320,22 @@
             if (shapImage) {
                 const img = document.createElement('img');
                 img.src = "data:image/png;base64," + shapImage;
-                img.className = "img-fluid shadow-sm rounded"; // Agregué shadow y rounded para estética
+                // 'img-fluid' de bootstrap ya ayuda, pero agregamos estilos extra por seguridad
+                img.className = "img-fluid shadow-sm rounded"; 
                 
-                // --- CAMBIO AQUÍ: AUMENTAMOS LA ALTURA MÁXIMA PERMITIDA ---
-                // Antes era "300px", ahora permitimos hasta "550px"
-                img.style.maxHeight = "550px"; 
-                img.style.width = "auto"; // Asegura que el ancho se ajuste proporcionalmente
+                // --- CAMBIOS CLAVE AQUÍ ---
+                // 1. ESTO ES VITAL: Fuerza a que la imagen nunca sea más ancha que la columna blanca
+                img.style.maxWidth = "100%"; 
+                img.style.height = "auto";   // Mantiene la proporción
+
+                // 2. Reducimos la altura máxima permitida (antes 550px, ahora 400px)
+                img.style.maxHeight = "400px"; 
                 
+                // Centrar la imagen horizontalmente si sobra espacio
+                img.style.display = "block";
+                img.style.margin = "0 auto";
+
                 shapDiv.appendChild(img);
-                // Removemos la altura mínima fija del contenedor si existe, para que se adapte a la imagen
                 shapDiv.style.minHeight = "auto"; 
             } else {
                 shapDiv.innerHTML = '<p class="text-muted">No se pudo generar el gráfico explicativo.</p>';

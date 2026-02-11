@@ -2,6 +2,24 @@ import os
 import sys
 import shutil
 
+# ==============================================================================
+# BLOQUE DE AJUSTE DE RUTAS (AGREGAR ESTO AL INICIO)
+# ==============================================================================
+# 1. Obtener la ruta absoluta de la carpeta donde está este script (misc)
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 2. Obtener la ruta raíz del proyecto (un nivel arriba de misc)
+project_root = os.path.abspath(os.path.join(current_script_dir, '..'))
+
+# 3. Agregar la raíz al 'sys.path' para poder importar 'utils'
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# 4. CAMBIAR EL DIRECTORIO DE TRABAJO A LA RAÍZ
+# Esto es vital: hace que cuando los otros scripts busquen "questions.json" 
+# o ".env", los encuentren en la raíz y no busquen en 'misc'.
+os.chdir(project_root)
+
 # --- CARGA DE SECRETOS ---
 try:
     from dotenv import load_dotenv
