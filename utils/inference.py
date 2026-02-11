@@ -53,6 +53,8 @@ def predict(input_data: dict):
             'transaction_type': str(input_data['transaction_type']), 
             'customer_segment': str(input_data['customer_segment'])
         }])
+        
+        df_input['amount'] = np.log1p(df_input['amount'])
 
         # 3. Reordenar columnas para evitar errores silenciosos
         df_for_model = df_input[column_order]
