@@ -19,6 +19,7 @@ if project_root not in sys.path:
 # Esto es vital: hace que cuando los otros scripts busquen "questions.json" 
 # o ".env", los encuentren en la raíz y no busquen en 'misc'.
 os.chdir(project_root)
+# ==============================================================================
 
 # --- CARGA DE SECRETOS ---
 try:

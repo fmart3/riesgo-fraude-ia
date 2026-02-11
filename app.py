@@ -11,9 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from pymongo import MongoClient
 
 # Importaciones locales
-import schemas
-import inference
-import explainability
+import utils.schemas as schemas
+import utils.inference as inference
+import utils.explainability as explainability
 
 # Configuración de Logs
 logging.basicConfig(level=logging.INFO)
