@@ -12,9 +12,8 @@ venv/
 # Ignoramos todos los pickles temporales...
 *.pkl
 # ...PERO obligamos a que SÍ se suba el modelo oficial para que Render lo vea
-!modelo_fraude.pkl
 !fraude.pkl
-!fraude_fix.pkl
+!model_fraude.pkl
 
 # 4. Sistema
 .DS_Store
