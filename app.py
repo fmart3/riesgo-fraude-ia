@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuración de la App
-app = FastAPI(title="FraudGuard AI Dashboard", version="3.0")
+app = FastAPI(title="FraudGuard AI Dashboard", version="3.1")
 
 # Configuración CORS
 app.add_middleware(
@@ -68,44 +68,60 @@ def read_root():
         return FileResponse("index.html")
     return {"message": "Frontend no encontrado"}
 
-# --- RUTA DE ANÁLISIS ---
+# ================================
+# ENDPOINT PRINCIPAL
+# ================================
 @app.post("/analyze", response_model=schemas.PredictionResponse)
-def analyze_transaction(form_data: schemas.TransactionRequest):
+async def analyze(data: schemas.TransactionRequest):
     try:
-        # Convertir Enums a strings planos para que funcione el feature engineering
-        data_dict = {
-            "amount": form_data.amount,
-            "hour": form_data.hour,
-            "account_age": form_data.account_age,
-            "transaction_type": form_data.transaction_type.value,
-            "customer_segment": form_data.customer_segment.value
+        # Extraer .value de los Enums para obtener strings planos
+        input_dict = {
+            "amount": data.amount,
+            "hour": data.hour,
+            "account_age": data.account_age,
+            "transaction_type": data.transaction_type.value,
+            "customer_segment": data.customer_segment.value
         }
 
-        probability, is_fraud = inference.predict(data_dict)
-        shap_image, text_explanation = explainability.generate_explanation(data_dict)
+        # 🔥 1. Predicción
+        prediction = inference.predict(input_dict)
 
-        response_payload = {
-            "probability_percent": round(probability * 100, 2),
-            "is_fraud": is_fraud,
-            "risk_score_input": int(probability * 100),
-            "alert_messages": ["Transacción de Alto Riesgo detectada"] if is_fraud else [],
-            "shap_image_base64": shap_image, 
-            "ai_explanation": text_explanation 
+        # 🔥 2. SHAP
+        shap_img, shap_text = explainability.generate_explanation(input_dict)
+
+        # 🔥 3. Construir respuesta alineada al schema
+        response = {
+            "probability_percent": prediction["probability_percent"],
+            "is_fraud": prediction["is_fraud"],
+            "risk_score_input": prediction["risk_score_input"],
+            "alert_messages": prediction["alert_messages"],
+            "shap_image_base64": shap_img,
+            "ai_explanation": shap_text,
+            "risk_level": prediction.get("risk_level", "LOW"),
+            "threshold_used": prediction.get("threshold_used", 0.329)
         }
 
-        # 5. Guardar en MongoDB (Si tienes la parte de DB)
+        # 🔥 4. Guardar en Mongo si existe
         if db_collection is not None:
-            data_dict["timestamp"] = datetime.now()
-            db_collection.insert_one(data_dict)
-        
-        return response_payload
+            try:
+                db_collection.insert_one({
+                    **input_dict,
+                    **response,
+                    "timestamp": datetime.utcnow()
+                })
+            except Exception as mongo_error:
+                logger.error(f"Error guardando en MongoDB: {mongo_error}")
+
+        return response
 
     except Exception as e:
         logger.error(f"Error en endpoint /analyze: {e}")
+
         return {
             "probability_percent": 0.0,
             "is_fraud": False,
             "risk_score_input": 0,
-            "alert_messages": ["Error interno"],
-            "ai_explanation": "Error generando análisis."
+            "alert_messages": ["Error generando análisis."],
+            "shap_image_base64": None,
+            "ai_explanation": "Error interno del sistema."
         }

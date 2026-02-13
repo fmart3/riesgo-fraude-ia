@@ -54,16 +54,46 @@ def predict(input_data: dict):
 
     try:
         df_raw = pd.DataFrame([input_data])
-
         df_processed = aplicar_feature_engineering_api(df_raw)
 
-        prob = _MODEL_PIPELINE.predict_proba(df_processed)[0, 1]
-        is_fraud = bool(prob >= THRESHOLD)
+        prob_fraude = _MODEL_PIPELINE.predict_proba(df_processed)[0, 1]
 
-        logger.info(f"Probabilidad: {prob:.4f} | Fraude: {is_fraud}")
+        # -----------------------------
+        # CLASIFICACIÓN DE RIESGO
+        # -----------------------------
+        if prob_fraude < 0.20:
+            risk_level = "LOW"
+            action = "APPROVE"
 
-        return prob, is_fraud
+        elif prob_fraude < THRESHOLD:
+            risk_level = "MEDIUM"
+            action = "REVIEW"
+
+        else:
+            risk_level = "HIGH"
+            action = "BLOCK"
+
+        is_fraud = action == "BLOCK"
+
+        logger.info(
+            f"Probabilidad: {prob_fraude:.4f} | Nivel: {risk_level} | Bloqueo: {is_fraud}"
+        )
+
+        return {
+            "probability_percent": round(prob_fraude * 100, 2),
+            "is_fraud": is_fraud,
+            "risk_score_input": int(prob_fraude * 100),
+            "alert_messages": [f"Nivel de riesgo: {risk_level}"],
+            "action": action,
+            "risk_level": risk_level,
+            "threshold_used": THRESHOLD
+        }
 
     except Exception as e:
         logger.error(f"Error en inferencia: {e}")
-        return 0.0, False
+        return {
+            "probability_percent": 0.0,
+            "is_fraud": False,
+            "risk_score_input": 0,
+            "alert_messages": ["Error en inferencia"],
+        }

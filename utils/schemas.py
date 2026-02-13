@@ -73,3 +73,5 @@ class PredictionResponse(BaseModel):
     alert_messages: List[str] = Field(default=[], description="Lista de mensajes explicativos o advertencias.")
     shap_image_base64: Optional[str] = Field(None, description="Imagen del gráfico SHAP codificada en Base64 para mostrar en HTML.")
     ai_explanation: Optional[str] = Field(None, description="Explicación generada por IA sobre la decisión tomada.")
+    risk_level: Optional[str] = Field(None, description="Nivel de riesgo: LOW, MEDIUM o HIGH.")
+    threshold_used: Optional[float] = Field(None, description="Umbral de decisión utilizado por el modelo.")

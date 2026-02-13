@@ -282,9 +282,9 @@
                     <div id="gaugeContainer"></div>
                 </div>
 
-                <div id="aiBoxShap" class="ai-box" style="display:none">
+                <div id="aiBoxDiag" class="ai-box" style="display:none">
                     <span class="ai-title">🤖 Análisis Inteligente:</span>
-                    <p id="aiTextShap" style="margin:0;"></p>
+                    <p id="aiTextDiag" style="margin:0;"></p>
                 </div>
             </div>
         </div>
@@ -316,11 +316,9 @@
             e.preventDefault();
 
             const btn = document.getElementById('btnSubmit');
-            // Referencias a las columnas ocultas
             const colResult = document.getElementById('colResult');
             const colShap = document.getElementById('colShap');
 
-            // Estado "Cargando"
             const originalBtnText = btn.innerHTML;
             btn.innerHTML = "Analizando...";
             btn.disabled = true;
@@ -341,117 +339,130 @@
                 });
 
                 if (!response.ok) {
-                    let errorMessage = "Error desconocido";
-                    try {
-                        const errorData = await response.json();
-                        errorMessage = errorData.detail;
-                    } catch (jsonError) {
-                        errorMessage = await response.text();
-                        if (errorMessage.length > 100) errorMessage = "Error Interno del Servidor (500)";
-                    }
-                    throw new Error(errorMessage);
+                    throw new Error("Error en el análisis.");
                 }
 
                 const result = await response.json();
 
-                // --- ÉXITO: MOSTRAR COLUMNAS ---
-
-                // 1. Quitamos la clase 'hidden'
                 colResult.classList.remove('hidden');
                 colShap.classList.remove('hidden');
-
-                // 2. Añadimos la clase de animación para que entren suavemente
                 colResult.classList.add('animate-entry');
                 colShap.classList.add('animate-entry');
 
-                // --- RENDERIZADO DE GRÁFICOS ---
+                // ==========================
+                // GAUGE PROFESIONAL
+                // ==========================
 
-                // A. MEDIDOR (Gauge) - Centrado y Ajustado
-                const score = result.probability_percent || (result.probability * 100);
-                let barColor = "#48bb78";
-                if (score > 35) barColor = "#ed8936";
-                if (score > 70) barColor = "#e53e3e";
+                const score = result.probability_percent ?? 0;
+                const threshold = result.threshold_used
+                    ? result.threshold_used * 100
+                    : 33; // fallback seguro
+
+                const riskLevel = result.risk_level || "LOW";
+
+                let barColor = "#48bb78"; // LOW
+                if (riskLevel === "MEDIUM") barColor = "#ed8936";
+                if (riskLevel === "HIGH") barColor = "#e53e3e";
 
                 const gaugeData = [{
-                    type: "indicator", mode: "gauge+number", value: score,
-                    title: { text: "<b>Nivel de Riesgo</b>", font: { size: 24, color: "#2d3748" } },
-                    number: { suffix: "%", font: { size: 40, weight: "bold", color: "#1a202c" } },
+                    type: "indicator",
+                    mode: "gauge+number",
+                    value: score,
+                    title: {
+                        text: `<b>Riesgo ${riskLevel}</b>`,
+                        font: { size: 20 }
+                    },
+                    number: {
+                        suffix: "%",
+                        font: { size: 38 }
+                    },
                     gauge: {
-                        axis: { range: [null, 100], tickwidth: 1, tickcolor: "#a0aec0" },
+                        axis: { range: [0, 100] },
                         bar: { color: barColor },
-                        bgcolor: "white", borderwidth: 2, bordercolor: "#e2e8f0",
+                        bgcolor: "white",
+                        borderwidth: 2,
+                        bordercolor: "#e2e8f0",
+
                         steps: [
-                            { range: [0, 35], color: "rgba(72, 187, 120, 0.1)" },
-                            { range: [35, 70], color: "rgba(237, 137, 54, 0.1)" },
-                            { range: [70, 100], color: "rgba(229, 62, 62, 0.1)" }
+                            { range: [0, 20], color: "rgba(72,187,120,0.15)" },
+                            { range: [20, threshold], color: "rgba(237,137,54,0.15)" },
+                            { range: [threshold, 100], color: "rgba(229,62,62,0.15)" }
                         ],
-                        threshold: { line: { color: "red", width: 4 }, thickness: 0.75, value: score }
+
+                        threshold: {
+                            line: { color: "#1a202c", width: 4 },
+                            thickness: 0.85,
+                            value: threshold
+                        }
                     }
                 }];
 
-                // Layout ajustado para centrado perfecto
-                const layout = {
-                    width: 320, height: 250,
-                    margin: { t: 50, b: 20, l: 25, r: 25 }, // Márgenes iguales L y R
-                    paper_bgcolor: "rgba(0,0,0,0)",
-                    font: { family: "Segoe UI, sans-serif" }
-                };
-                Plotly.newPlot('gaugeContainer', gaugeData, layout, { displayModeBar: false, responsive: true });
+                Plotly.newPlot('gaugeContainer', gaugeData, {
+                    width: 320,
+                    height: 260,
+                    margin: { t: 50, b: 20, l: 25, r: 25 },
+                    paper_bgcolor: "rgba(0,0,0,0)"
+                }, { displayModeBar: false });
 
-                // B. TEXTO IA
-                if (result.ai_explanation) {
-                    document.getElementById('aiBoxShap').style.display = 'block';
-                    document.getElementById('aiTextShap').innerText = result.ai_explanation;
-                }
+                // ==========================
+                // SHAP IMAGE
+                // ==========================
 
-                // C. IMAGEN SHAP
-                const shapImage = result.shap_image_base64;
                 const shapDiv = document.getElementById('shapContainer');
-                shapDiv.innerHTML = ''; // Limpiar lo anterior
+                shapDiv.innerHTML = '';
 
-                if (shapImage) {
+                if (result.shap_image_base64) {
                     const img = document.createElement('img');
-                    img.src = "data:image/png;base64," + shapImage;
-                    // 'img-fluid' de bootstrap ya ayuda, pero agregamos estilos extra por seguridad
-                    img.className = "img-fluid shadow-sm rounded";
-
-                    // --- CAMBIOS CLAVE AQUÍ ---
-                    // 1. ESTO ES VITAL: Fuerza a que la imagen nunca sea más ancha que la columna blanca
+                    img.src = "data:image/png;base64," + result.shap_image_base64;
                     img.style.maxWidth = "100%";
-                    img.style.height = "auto";   // Mantiene la proporción
-
-                    // 2. Reducimos la altura máxima permitida (antes 550px, ahora 400px)
                     img.style.maxHeight = "400px";
-
-                    // Centrar la imagen horizontalmente si sobra espacio
                     img.style.display = "block";
                     img.style.margin = "0 auto";
-
                     shapDiv.appendChild(img);
-                    shapDiv.style.minHeight = "auto";
                 } else {
-                    shapDiv.innerHTML = '<p class="text-muted">No se pudo generar el gráfico explicativo.</p>';
-                    shapDiv.style.minHeight = "250px"; // Mantener altura si falla
+                    shapDiv.innerHTML = '<p>No se pudo generar el gráfico explicativo.</p>';
                 }
 
-                // D. TEXTO EXPLICATIVO (NUEVO)
-                if (result.ai_explanation) {
-                    document.getElementById('aiBoxShap').style.display = 'block';
-                    document.getElementById('aiTextShap').innerText = result.ai_explanation;
+                // ==========================
+                // TEXTO IA
+                // ==========================
 
-                    // Cambiar color del borde según si es fraude o no
-                    const boxColor = result.is_fraud ? '#dc3545' : '#198754'; // Rojo o Verde
-                    document.getElementById('aiBoxShap').style.borderLeftColor = boxColor;
+                // A. TEXTO IA en columna SHAP
+                const aiBoxShap = document.getElementById('aiBoxShap');
+                const aiTextShap = document.getElementById('aiTextShap');
+
+                // B. TEXTO IA en columna Diagnóstico
+                const aiBoxDiag = document.getElementById('aiBoxDiag');
+                const aiTextDiag = document.getElementById('aiTextDiag');
+
+                if (result.ai_explanation) {
+                    // Update for Diagnosis column
+                    aiBoxDiag.style.display = 'block';
+                    aiTextDiag.innerText = result.ai_explanation;
+
+                    // Update for SHAP column
+                    aiBoxShap.style.display = "block";
+                    aiTextShap.innerText = result.ai_explanation;
+
+                    // Apply border color based on risk level to SHAP AI box
+                    if (riskLevel === "HIGH") {
+                        aiBoxShap.style.borderLeftColor = "#e53e3e";
+                    } else if (riskLevel === "MEDIUM") {
+                        aiBoxShap.style.borderLeftColor = "#ed8936";
+                    } else {
+                        aiBoxShap.style.borderLeftColor = "#48bb78";
+                    }
                 }
 
             } catch (error) {
-                alert("⚠️ " + error.message);
+                alert("⚠️ Error en el análisis.");
             } finally {
                 btn.innerHTML = originalBtnText;
                 btn.disabled = false;
             }
         });
     </script>
+
 
 </body>
 
