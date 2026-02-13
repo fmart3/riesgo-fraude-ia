@@ -21,3 +21,4 @@ venv/
 # 5. Python de prueba
 check_model_inputs.py
 test_bruteforce.py
+update_model.py
