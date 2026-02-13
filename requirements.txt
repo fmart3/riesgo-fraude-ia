@@ -15,4 +15,3 @@ python-multipart
 requests
 dnspython
 imblearn
-enum
