@@ -22,4 +22,5 @@ venv/
 check_model_inputs.py
 test_bruteforce.py
 update_model.py
+fraudrisktraining.py
 misc/
