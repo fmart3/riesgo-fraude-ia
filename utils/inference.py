@@ -1,74 +1,69 @@
 import os
 import joblib
 import pandas as pd
+import numpy as np
 import logging
 
-# ======================================================================
-# LOGGING
-# ======================================================================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ======================================================================
-# CONFIGURACIÓN
-# ======================================================================
 MODEL_PATH = "model_fraude.pkl"
-THRESHOLD = 0.46
 _MODEL_PIPELINE = None
+THRESHOLD = 0.329  # ← usa el umbral óptimo que encontraste
 
-# ======================================================================
+# =========================================================
 # CARGA DEL MODELO
-# ======================================================================
+# =========================================================
 def load_model_assets():
     global _MODEL_PIPELINE
 
     if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"❌ No existe el modelo en {MODEL_PATH}")
+        raise FileNotFoundError(f"No existe el modelo en {MODEL_PATH}")
 
     _MODEL_PIPELINE = joblib.load(MODEL_PATH)
-    logger.info("✅ Modelo cargado correctamente (Pipeline completo).")
+    logger.info("✅ Modelo cargado correctamente.")
 
-# ======================================================================
-# INFERENCIA
-# ======================================================================
-def predict_fraud(input_data: dict):
-    """
-    input_data:
-    {
-        "amount": 950000,
-        "hour": 3,
-        "account_age": 2.0,
-        "transaction_type": "Bank Transfer",
-        "customer_segment": "Business"
-    }
-    """
+# =========================================================
+# FEATURE ENGINEERING (idéntico al entrenamiento)
+# =========================================================
+def aplicar_feature_engineering_api(df):
+    df = df.copy()
+
+    df["amount_log"] = np.log1p(df["amount"])
+    df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
+    df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
+    df["is_night"] = df["hour"].apply(lambda x: 1 if (x >= 23 or x <= 5) else 0)
+
+    bins = [-1, 2, 10, 100]
+    labels = ["New", "Established", "Veteran"]
+    df["tenure_group"] = pd.cut(df["account_age"], bins=bins, labels=labels)
+    df["segment_tenure_profile"] = (
+        df["customer_segment"] + "_" + df["tenure_group"].astype(str)
+    )
+
+    return df
+
+# =========================================================
+# FUNCIÓN COMPATIBLE CON app.py
+# =========================================================
+def predict(input_data: dict):
+    global _MODEL_PIPELINE
 
     if _MODEL_PIPELINE is None:
-        raise RuntimeError("Modelo no cargado. Llama a load_model_assets()")
+        load_model_assets()
 
     try:
-        # 1️⃣ DataFrame crudo (SIN feature engineering manual)
-        df_input = pd.DataFrame([input_data])
+        df_raw = pd.DataFrame([input_data])
 
-        # 2️⃣ Predicción directa
-        prob_fraude = _MODEL_PIPELINE.predict_proba(df_input)[0, 1]
+        df_processed = aplicar_feature_engineering_api(df_raw)
 
-        # 3️⃣ Decisión de negocio
-        is_fraud = prob_fraude >= THRESHOLD
+        prob = _MODEL_PIPELINE.predict_proba(df_processed)[0, 1]
+        is_fraud = bool(prob >= THRESHOLD)
 
-        result = {
-            "fraud_probability": round(prob_fraude * 100, 2),
-            "is_fraud": bool(is_fraud),
-            "threshold_used": THRESHOLD,
-            "action": "BLOCK" if is_fraud else "APPROVE"
-        }
+        logger.info(f"Probabilidad: {prob:.4f} | Fraude: {is_fraud}")
 
-        logger.info(
-            f"📊 Prob={result['fraud_probability']}% | Acción={result['action']}"
-        )
-
-        return result
+        return prob, is_fraud
 
     except Exception as e:
-        logger.error(f"❌ Error en inferencia: {e}")
-        raise e
+        logger.error(f"Error en inferencia: {e}")
+        return 0.0, False

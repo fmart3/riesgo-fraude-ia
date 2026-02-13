@@ -72,7 +72,15 @@ def read_root():
 @app.post("/analyze", response_model=schemas.PredictionResponse)
 def analyze_transaction(form_data: schemas.TransactionRequest):
     try:
-        data_dict = form_data.dict()
+        # Convertir Enums a strings planos para que funcione el feature engineering
+        data_dict = {
+            "amount": form_data.amount,
+            "hour": form_data.hour,
+            "account_age": form_data.account_age,
+            "transaction_type": form_data.transaction_type.value,
+            "customer_segment": form_data.customer_segment.value
+        }
+
         probability, is_fraud = inference.predict(data_dict)
         shap_image, text_explanation = explainability.generate_explanation(data_dict)
 
@@ -87,7 +95,6 @@ def analyze_transaction(form_data: schemas.TransactionRequest):
 
         # 5. Guardar en MongoDB (Si tienes la parte de DB)
         if db_collection is not None:
-            # Añadir timestamp a los datos
             data_dict["timestamp"] = datetime.now()
             db_collection.insert_one(data_dict)
         

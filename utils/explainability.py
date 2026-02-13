@@ -148,5 +148,6 @@ def generate_explanation(data_dict):
         return image_base64, explanation_text
 
     except Exception as e:
-        print(f"Error generando explicación: {e}")
-        return None, "No se pudo generar la explicación."
+        logger.error(f"Error SHAP: {e}")
+        return "", "No se pudo generar el gráfico explicativo."
+

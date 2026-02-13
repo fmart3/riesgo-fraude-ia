@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FraudGuard AI Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    
+
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #5fa0ca, #2a1f5e);
@@ -15,99 +16,161 @@
             --danger: #e53e3e;
         }
 
-        body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            background: var(--bg-gradient); 
-            margin: 0; padding: 20px;
-            display: flex; flex-direction: column; align-items: center;
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-gradient);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             min-height: 100vh;
         }
 
-        h1.main-title { 
-            color: #f7fafc; 
-            margin-bottom: 30px; 
-            font-size: 28px; 
-            text-align: center; 
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+        h1.main-title {
+            color: #f7fafc;
+            margin-bottom: 30px;
+            font-size: 28px;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
 
         /* --- LAYOUT PRINCIPAL --- */
         .dashboard-wrapper {
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 25px; 
-            justify-content: center; /* Esto centra el form cuando está solo */
-            align-items: flex-start; 
-            width: 95%; 
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            justify-content: center;
+            /* Esto centra el form cuando está solo */
+            align-items: flex-start;
+            width: 95%;
             max-width: 1600px;
-            transition: all 0.5s ease; /* Transición suave al cambiar anchos */
+            transition: all 0.5s ease;
+            /* Transición suave al cambiar anchos */
         }
 
         .panel-box {
-            background: var(--card-bg); padding: 30px;
-            border-radius: 16px; 
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
-            display: flex; flex-direction: column;
+            display: flex;
+            flex-direction: column;
         }
 
         /* --- ANIMACIONES --- */
         /* Clase para ocultar elementos inicialmente */
-        .hidden { display: none !important; }
+        .hidden {
+            display: none !important;
+        }
 
         /* Animación de entrada (Slide Up + Fade) */
-        .animate-entry { animation: slideUpFade 0.7s ease-out forwards; }
+        .animate-entry {
+            animation: slideUpFade 0.7s ease-out forwards;
+        }
 
         @keyframes slideUpFade {
-            from { opacity: 0; transform: translateY(40px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* --- COLUMNAS --- */
-        
+
         /* Columna 1: Formulario */
-        .col-1-form { 
-            flex: 0 0 350px; /* Ancho fijo elegante */
+        .col-1-form {
+            flex: 0 0 350px;
+            /* Ancho fijo elegante */
             max-width: 100%;
         }
 
         /* Columna 2: Resultado */
-        .col-2-result { 
-            flex: 1; 
-            min-width: 320px; 
+        .col-2-result {
+            flex: 1;
+            min-width: 320px;
             /* Quitamos la altura forzada excesiva, usamos min-content */
-            height: fit-content; 
+            height: fit-content;
         }
 
         /* Columna 3: SHAP */
-        .col-3-shap { 
-            flex: 1.5; /* Un poco más ancha que la col 2 */
-            min-width: 400px; 
-            height: fit-content; /* Se ajusta al contenido, evita espacio blanco */
+        .col-3-shap {
+            flex: 1.5;
+            /* Un poco más ancha que la col 2 */
+            min-width: 400px;
+            height: fit-content;
+            /* Se ajusta al contenido, evita espacio blanco */
             padding-bottom: 20px;
-        } 
+        }
 
-        h3.panel-title { 
-            color: var(--primary); 
-            border-bottom: 2px solid #e2e8f0; 
-            padding-bottom: 15px; margin-top: 0; 
+        h3.panel-title {
+            color: var(--primary);
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 15px;
+            margin-top: 0;
             font-size: 20px;
         }
 
         /* Estilos del Formulario */
-        label { display: block; margin-top: 15px; font-weight: 600; color: var(--text-muted); font-size: 0.9em; }
-        input, select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #cbd5e0; box-sizing: border-box; font-size: 14px; background-color: #f8fafc; }
-        input:focus, select:focus { border-color: var(--primary); outline: none; background-color: #fff; }
-        
-        button { 
-            width: 100%; padding: 14px; margin-top: 30px; 
-            border-radius: 8px; border: none; cursor: pointer; 
-            font-size: 16px; font-weight: bold; 
-            background-color: #5fa0ca; color: white; 
-            transition: all 0.2s; 
-            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11); 
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 0.9em;
         }
-        button:hover { background-color: #2b6cb0; transform: translateY(-2px); box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1); }
-        button:disabled { background-color: #cbd5e0; cursor: wait; transform: none; box-shadow: none;}
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px;
+            margin-top: 5px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e0;
+            box-sizing: border-box;
+            font-size: 14px;
+            background-color: #f8fafc;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: var(--primary);
+            outline: none;
+            background-color: #fff;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 30px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #5fa0ca;
+            color: white;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11);
+        }
+
+        button:hover {
+            background-color: #2b6cb0;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1);
+        }
+
+        button:disabled {
+            background-color: #cbd5e0;
+            cursor: wait;
+            transform: none;
+            box-shadow: none;
+        }
 
         /* Estilos Resultados */
         /* Contenedor Flex para CENTRAR EL GAUGE perfectamente */
@@ -119,50 +182,77 @@
             margin-top: 10px;
             margin-bottom: 10px;
         }
-        
+
         .ai-box {
-            background: #ebf8ff; border-left: 5px solid #4299e1;
-            padding: 20px; margin-top: 15px; border-radius: 6px; 
-            font-size: 1em; line-height: 1.6; color: #2d3748;
+            background: #ebf8ff;
+            border-left: 5px solid #4299e1;
+            padding: 20px;
+            margin-top: 15px;
+            border-radius: 6px;
+            font-size: 1em;
+            line-height: 1.6;
+            color: #2d3748;
         }
-        .ai-title { font-weight: bold; color: #2b6cb0; display: block; margin-bottom: 8px; font-size: 1.1em;}
+
+        .ai-title {
+            font-weight: bold;
+            color: #2b6cb0;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
 
         /* Estilos SHAP */
-        #shapContainer { 
-            text-align: center; 
-            width: 100%; 
-            display: flex; flex-direction: column; align-items: center; 
+        #shapContainer {
+            text-align: center;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        img.shap-plot { 
-            width: 100%; 
-            height: auto; 
-            border-radius: 8px; 
-            border: 1px solid #e2e8f0; 
+
+        img.shap-plot {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
         }
 
         /* Responsive */
         @media (max-width: 1100px) {
-            .dashboard-wrapper { flex-direction: column; align-items: center; }
-            .col-1-form, .col-2-result, .col-3-shap { width: 100%; max-width: 600px; flex: auto; }
-        }
+            .dashboard-wrapper {
+                flex-direction: column;
+                align-items: center;
+            }
 
+            .col-1-form,
+            .col-2-result,
+            .col-3-shap {
+                width: 100%;
+                max-width: 600px;
+                flex: auto;
+            }
+        }
     </style>
 </head>
+
 <body>
 
     <h1 class="main-title animate-entry">🛡️ FraudGuard AI Dashboard</h1>
 
     <div class="dashboard-wrapper">
-        
+
         <div class="panel-box col-1-form animate-entry">
             <h3 class="panel-title">1. Datos de Operación</h3>
             <form id="fraudeForm">
                 <label>Monto ($)</label>
                 <input type="number" id="amount" value="150" min="1" step="0.01" required>
-                
+
                 <div style="display: flex; gap: 15px;">
-                    <div style="flex: 1;"><label>Hora (0-23)</label><input type="number" id="hour" value="14" min="0" max="23" required></div>
-                    <div style="flex: 1;"><label>Antigüedad</label><input type="number" id="account_age" value="2.5" min="0" step="0.1" required></div>
+                    <div style="flex: 1;"><label>Hora (0-23)</label><input type="number" id="hour" value="14" min="0"
+                            max="23" required></div>
+                    <div style="flex: 1;"><label>Antigüedad</label><input type="number" id="account_age" value="2.5"
+                            min="0" step="0.1" required></div>
                 </div>
 
                 <label>Tipo de Movimiento</label>
@@ -186,32 +276,34 @@
 
         <div id="colResult" class="panel-box col-2-result hidden">
             <h3 class="panel-title">2. Diagnóstico & IA</h3>
-            
+
             <div id="resultContent">
                 <div class="gauge-wrapper">
                     <div id="gaugeContainer"></div>
                 </div>
-                
-                <div id="aiBox" class="ai-box" style="display:none">
+
+                <div id="aiBoxShap" class="ai-box" style="display:none">
                     <span class="ai-title">🤖 Análisis Inteligente:</span>
-                    <p id="aiText" style="margin:0;"></p>
+                    <p id="aiTextShap" style="margin:0;"></p>
                 </div>
             </div>
         </div>
 
         <div id="colShap" class="panel-box col-3-shap hidden">
             <h3 class="panel-title">3. Explicabilidad (SHAP)</h3>
-            
+
             <div class="col-md-6 fade-in" style="animation-delay: 0.4s;">
                 <div class="card p-4 h-100">
                     <h3 class="text-center mb-3" style="color: var(--primary);">🔍 ¿Por qué esta decisión?</h3>
-                    
-                    <div id="shapContainer" class="d-flex justify-content-center align-items-center" style="min-height: 250px; background: #f8f9fa; border-radius: 10px;">
+
+                    <div id="shapContainer" class="d-flex justify-content-center align-items-center"
+                        style="min-height: 250px; background: #f8f9fa; border-radius: 10px;">
                         <p class="text-muted">El análisis de factores aparecerá aquí.</p>
                     </div>
 
-                    <div id="aiBox" class="mt-3 p-3" style="display: none; background-color: #eef2f7; border-left: 4px solid var(--primary); border-radius: 4px;">
-                        <p id="aiText" style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.5;"></p>
+                    <div id="aiBoxShap" class="mt-3 p-3"
+                        style="display: none; background-color: #eef2f7; border-left: 4px solid var(--primary); border-radius: 4px;">
+                        <p id="aiTextShap" style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.5;"></p>
                     </div>
                 </div>
             </div>
@@ -219,147 +311,148 @@
 
     </div>
 
-<script>
-    document.getElementById('fraudeForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const btn = document.getElementById('btnSubmit');
-        // Referencias a las columnas ocultas
-        const colResult = document.getElementById('colResult');
-        const colShap = document.getElementById('colShap');
-        
-        // Estado "Cargando"
-        const originalBtnText = btn.innerHTML;
-        btn.innerHTML = "Analizando..."; 
-        btn.disabled = true;
+    <script>
+        document.getElementById('fraudeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-        const data = {
-            amount: parseFloat(document.getElementById('amount').value),
-            hour: parseInt(document.getElementById('hour').value),
-            account_age: parseFloat(document.getElementById('account_age').value),
-            transaction_type: document.getElementById('type').value,
-            customer_segment: document.getElementById('segment').value
-        };
+            const btn = document.getElementById('btnSubmit');
+            // Referencias a las columnas ocultas
+            const colResult = document.getElementById('colResult');
+            const colShap = document.getElementById('colShap');
 
-        try {
-            const response = await fetch('/analyze', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify(data)
-            });
-            
-            if (!response.ok) {
-                let errorMessage = "Error desconocido";
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.detail;
-                } catch (jsonError) {
-                    errorMessage = await response.text();
-                    if (errorMessage.length > 100) errorMessage = "Error Interno del Servidor (500)";
-                }
-                throw new Error(errorMessage);
-            }
+            // Estado "Cargando"
+            const originalBtnText = btn.innerHTML;
+            btn.innerHTML = "Analizando...";
+            btn.disabled = true;
 
-            const result = await response.json();
-
-            // --- ÉXITO: MOSTRAR COLUMNAS ---
-            
-            // 1. Quitamos la clase 'hidden'
-            colResult.classList.remove('hidden');
-            colShap.classList.remove('hidden');
-            
-            // 2. Añadimos la clase de animación para que entren suavemente
-            colResult.classList.add('animate-entry');
-            colShap.classList.add('animate-entry');
-
-            // --- RENDERIZADO DE GRÁFICOS ---
-
-            // A. MEDIDOR (Gauge) - Centrado y Ajustado
-            const score = result.probability_percent || (result.probability * 100); 
-            let barColor = "#48bb78"; 
-            if(score > 35) barColor = "#ed8936"; 
-            if(score > 70) barColor = "#e53e3e"; 
-
-            const gaugeData = [{
-                type: "indicator", mode: "gauge+number", value: score,
-                title: { text: "<b>Nivel de Riesgo</b>", font: { size: 24, color: "#2d3748" } },
-                number: { suffix: "%", font: { size: 40, weight: "bold", color: "#1a202c" } },
-                gauge: {
-                    axis: { range: [null, 100], tickwidth: 1, tickcolor: "#a0aec0" },
-                    bar: { color: barColor },
-                    bgcolor: "white", borderwidth: 2, bordercolor: "#e2e8f0",
-                    steps: [
-                        { range: [0, 35], color: "rgba(72, 187, 120, 0.1)" },
-                        { range: [35, 70], color: "rgba(237, 137, 54, 0.1)" },
-                        { range: [70, 100], color: "rgba(229, 62, 62, 0.1)" }
-                    ],
-                    threshold: { line: { color: "red", width: 4 }, thickness: 0.75, value: score }
-                }
-            }];
-            
-            // Layout ajustado para centrado perfecto
-            const layout = { 
-                width: 320, height: 250, 
-                margin: { t: 50, b: 20, l: 25, r: 25 }, // Márgenes iguales L y R
-                paper_bgcolor: "rgba(0,0,0,0)", 
-                font: { family: "Segoe UI, sans-serif" }
+            const data = {
+                amount: parseFloat(document.getElementById('amount').value),
+                hour: parseInt(document.getElementById('hour').value),
+                account_age: parseFloat(document.getElementById('account_age').value),
+                transaction_type: document.getElementById('type').value,
+                customer_segment: document.getElementById('segment').value
             };
-            Plotly.newPlot('gaugeContainer', gaugeData, layout, {displayModeBar: false, responsive: true});
 
-            // B. TEXTO IA
-            if (result.ai_explanation) {
-                document.getElementById('aiBox').style.display = 'block';
-                document.getElementById('aiText').innerText = result.ai_explanation;
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    let errorMessage = "Error desconocido";
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail;
+                    } catch (jsonError) {
+                        errorMessage = await response.text();
+                        if (errorMessage.length > 100) errorMessage = "Error Interno del Servidor (500)";
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+
+                // --- ÉXITO: MOSTRAR COLUMNAS ---
+
+                // 1. Quitamos la clase 'hidden'
+                colResult.classList.remove('hidden');
+                colShap.classList.remove('hidden');
+
+                // 2. Añadimos la clase de animación para que entren suavemente
+                colResult.classList.add('animate-entry');
+                colShap.classList.add('animate-entry');
+
+                // --- RENDERIZADO DE GRÁFICOS ---
+
+                // A. MEDIDOR (Gauge) - Centrado y Ajustado
+                const score = result.probability_percent || (result.probability * 100);
+                let barColor = "#48bb78";
+                if (score > 35) barColor = "#ed8936";
+                if (score > 70) barColor = "#e53e3e";
+
+                const gaugeData = [{
+                    type: "indicator", mode: "gauge+number", value: score,
+                    title: { text: "<b>Nivel de Riesgo</b>", font: { size: 24, color: "#2d3748" } },
+                    number: { suffix: "%", font: { size: 40, weight: "bold", color: "#1a202c" } },
+                    gauge: {
+                        axis: { range: [null, 100], tickwidth: 1, tickcolor: "#a0aec0" },
+                        bar: { color: barColor },
+                        bgcolor: "white", borderwidth: 2, bordercolor: "#e2e8f0",
+                        steps: [
+                            { range: [0, 35], color: "rgba(72, 187, 120, 0.1)" },
+                            { range: [35, 70], color: "rgba(237, 137, 54, 0.1)" },
+                            { range: [70, 100], color: "rgba(229, 62, 62, 0.1)" }
+                        ],
+                        threshold: { line: { color: "red", width: 4 }, thickness: 0.75, value: score }
+                    }
+                }];
+
+                // Layout ajustado para centrado perfecto
+                const layout = {
+                    width: 320, height: 250,
+                    margin: { t: 50, b: 20, l: 25, r: 25 }, // Márgenes iguales L y R
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    font: { family: "Segoe UI, sans-serif" }
+                };
+                Plotly.newPlot('gaugeContainer', gaugeData, layout, { displayModeBar: false, responsive: true });
+
+                // B. TEXTO IA
+                if (result.ai_explanation) {
+                    document.getElementById('aiBoxShap').style.display = 'block';
+                    document.getElementById('aiTextShap').innerText = result.ai_explanation;
+                }
+
+                // C. IMAGEN SHAP
+                const shapImage = result.shap_image_base64;
+                const shapDiv = document.getElementById('shapContainer');
+                shapDiv.innerHTML = ''; // Limpiar lo anterior
+
+                if (shapImage) {
+                    const img = document.createElement('img');
+                    img.src = "data:image/png;base64," + shapImage;
+                    // 'img-fluid' de bootstrap ya ayuda, pero agregamos estilos extra por seguridad
+                    img.className = "img-fluid shadow-sm rounded";
+
+                    // --- CAMBIOS CLAVE AQUÍ ---
+                    // 1. ESTO ES VITAL: Fuerza a que la imagen nunca sea más ancha que la columna blanca
+                    img.style.maxWidth = "100%";
+                    img.style.height = "auto";   // Mantiene la proporción
+
+                    // 2. Reducimos la altura máxima permitida (antes 550px, ahora 400px)
+                    img.style.maxHeight = "400px";
+
+                    // Centrar la imagen horizontalmente si sobra espacio
+                    img.style.display = "block";
+                    img.style.margin = "0 auto";
+
+                    shapDiv.appendChild(img);
+                    shapDiv.style.minHeight = "auto";
+                } else {
+                    shapDiv.innerHTML = '<p class="text-muted">No se pudo generar el gráfico explicativo.</p>';
+                    shapDiv.style.minHeight = "250px"; // Mantener altura si falla
+                }
+
+                // D. TEXTO EXPLICATIVO (NUEVO)
+                if (result.ai_explanation) {
+                    document.getElementById('aiBoxShap').style.display = 'block';
+                    document.getElementById('aiTextShap').innerText = result.ai_explanation;
+
+                    // Cambiar color del borde según si es fraude o no
+                    const boxColor = result.is_fraud ? '#dc3545' : '#198754'; // Rojo o Verde
+                    document.getElementById('aiBoxShap').style.borderLeftColor = boxColor;
+                }
+
+            } catch (error) {
+                alert("⚠️ " + error.message);
+            } finally {
+                btn.innerHTML = originalBtnText;
+                btn.disabled = false;
             }
-
-            // C. IMAGEN SHAP
-            const shapImage = result.shap_image_base64;
-            const shapDiv = document.getElementById('shapContainer');
-            shapDiv.innerHTML = ''; // Limpiar lo anterior
-
-            if (shapImage) {
-                const img = document.createElement('img');
-                img.src = "data:image/png;base64," + shapImage;
-                // 'img-fluid' de bootstrap ya ayuda, pero agregamos estilos extra por seguridad
-                img.className = "img-fluid shadow-sm rounded"; 
-                
-                // --- CAMBIOS CLAVE AQUÍ ---
-                // 1. ESTO ES VITAL: Fuerza a que la imagen nunca sea más ancha que la columna blanca
-                img.style.maxWidth = "100%"; 
-                img.style.height = "auto";   // Mantiene la proporción
-
-                // 2. Reducimos la altura máxima permitida (antes 550px, ahora 400px)
-                img.style.maxHeight = "400px"; 
-                
-                // Centrar la imagen horizontalmente si sobra espacio
-                img.style.display = "block";
-                img.style.margin = "0 auto";
-
-                shapDiv.appendChild(img);
-                shapDiv.style.minHeight = "auto"; 
-            } else {
-                shapDiv.innerHTML = '<p class="text-muted">No se pudo generar el gráfico explicativo.</p>';
-                shapDiv.style.minHeight = "250px"; // Mantener altura si falla
-            }
-
-            // D. TEXTO EXPLICATIVO (NUEVO)
-            if (result.ai_explanation) {
-                document.getElementById('aiBox').style.display = 'block';
-                document.getElementById('aiText').innerText = result.ai_explanation;
-                
-                // Cambiar color del borde según si es fraude o no
-                const boxColor = result.is_fraud ? '#dc3545' : '#198754'; // Rojo o Verde
-                document.getElementById('aiBox').style.borderLeftColor = boxColor;
-            }
-
-        } catch (error) {
-            alert("⚠️ " + error.message);
-        } finally {
-            btn.innerHTML = originalBtnText; 
-            btn.disabled = false;
-        }
-    });
-</script>
+        });
+    </script>
 
 </body>
+
 </html>
