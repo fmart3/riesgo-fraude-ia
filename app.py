@@ -8,6 +8,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 # --- NUEVO: Importar MongoDB ---
+from dotenv import load_dotenv
+load_dotenv()
 from pymongo import MongoClient
 
 # Importaciones locales
