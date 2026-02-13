@@ -1,109 +1,152 @@
 import matplotlib
 # Configuración para servidores sin pantalla (Headless) - VITAL para Render
-matplotlib.use('Agg') 
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
 import base64
-import pandas as pd
+import numpy as np
+import os
+import sys
+
+# ==============================================================================
+# BLOQUE DE AJUSTE DE RUTAS (AGREGAR ESTO AL INICIO)
+# ==============================================================================
+# 1. Obtener la ruta absoluta de la carpeta donde está este script (misc)
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 2. Obtener la ruta raíz del proyecto (un nivel arriba de misc)
+project_root = os.path.abspath(os.path.join(current_script_dir, '..'))
+
+# 3. Agregar la raíz al 'sys.path' para poder importar 'utils'
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# 4. CAMBIAR EL DIRECTORIO DE TRABAJO A LA RAÍZ
+# Esto es vital: hace que cuando los otros scripts busquen "questions.json" 
+# o ".env", los encuentren en la raíz y no busquen en 'misc'.
+os.chdir(project_root)
+# ==============================================================================
+
 
 def generate_explanation(data_dict):
     """
-    Genera un gráfico estilo SHAP y un texto explicativo basado en la lógica del modelo.
+    Genera un gráfico de interpretabilidad tipo SHAP-proxy y un texto explicativo
+    basado en reglas alineadas con el feature engineering del modelo.
+
+    ⚠️ IMPORTANTE:
+    Esta explicación NO representa los pesos internos reales del modelo.
+    Es una capa interpretativa diseñada para humanos, basada en patrones
+    comúnmente asociados al fraude según el entrenamiento del sistema.
+    
     Retorna: (imagen_base64, texto_explicativo)
     """
     try:
-        # 1. Extraer datos
+        # ------------------------------------------------------------------
+        # 1. Extracción de variables crudas (las únicas disponibles en la app)
+        # ------------------------------------------------------------------
         monto = float(data_dict.get('amount', 0))
         hora = int(data_dict.get('hour', 0))
         antiguedad = float(data_dict.get('account_age', 0))
         tipo = str(data_dict.get('transaction_type', ''))
-        # segmento = str(data_dict.get('customer_segment', '')) # No lo usamos en la lógica visual actual
 
-        # 2. Calcular "Importancia" (Simulación de pesos del modelo)
-        # Valores positivos (Rojo) = Empujan hacia FRAUDE
-        # Valores negativos (Azul) = Empujan hacia SEGURO
-        
+        # ------------------------------------------------------------------
+        # 2. Construcción de contribuciones (proxy del razonamiento del modelo)
+        #    Positivo  -> empuja a FRAUDE
+        #    Negativo  -> empuja a SEGURO
+        # ------------------------------------------------------------------
         contributions = {}
-        
-        # A. Lógica del Monto
+
+        # --- A. MONTO (el modelo usa log1p, aquí explicamos en términos relativos)
         if monto > 10000:
-            contributions['Monto Alto'] = 0.6  # Muy riesgoso
+            contributions['Monto Relativamente Alto'] = 0.6
         elif monto > 1000:
-            contributions['Monto Medio'] = 0.3
+            contributions['Monto Moderado'] = 0.25
         else:
-            contributions['Monto Bajo'] = -0.2 # Seguro
+            contributions['Monto Bajo'] = -0.2
 
-        # B. Lógica de la Hora
-        if hora < 6 or hora > 22:
-            contributions['Horario Nocturno'] = 0.4 # Sospechoso
+        # --- B. HORA (patrón cíclico: madrugada vs horario típico)
+        # Representa indirectamente hour_sin / hour_cos
+        if hora in [23, 0, 1, 2, 3, 4, 5]:
+            contributions['Patrón Horario Atípico (Madrugada)'] = 0.4
         elif 9 <= hora <= 18:
-            contributions['Horario Oficina'] = -0.3 # Seguro
+            contributions['Patrón Horario Habitual'] = -0.3
         else:
-            contributions['Horario Neutro'] = 0.05
+            contributions['Patrón Horario Intermedio'] = 0.05
 
-        # C. Lógica de Cuenta
-        if antiguedad == 0:
-            contributions['Cuenta Nueva'] = 0.5 # Muy riesgoso
-        elif antiguedad > 3:
-            contributions['Cuenta Antigua'] = -0.4 # Cliente fiel
+        # --- C. ANTIGÜEDAD (buckets reales del modelo)
+        # tenure_group = New / Established / Veteran
+        if antiguedad <= 2:
+            contributions['Cliente Nuevo (Tenure Bajo)'] = 0.45
+        elif antiguedad > 10:
+            contributions['Cliente Veterano'] = -0.4
         else:
-            contributions['Antigüedad Normal'] = 0.1
+            contributions['Cliente Establecido'] = 0.1
 
-        # D. Lógica de Tipo
+        # --- D. TIPO DE TRANSACCIÓN
         if tipo in ['ATM Withdrawal', 'Online Purchase']:
-            contributions['Canal Riesgoso'] = 0.15
+            contributions['Canal Transaccional de Mayor Riesgo'] = 0.15
         else:
-            contributions['Canal Seguro'] = -0.1
+            contributions['Canal Transaccional Habitual'] = -0.1
 
-        # 3. Crear Gráfico (Horizontal Bar Chart)
+        # ------------------------------------------------------------------
+        # 3. Gráfico Horizontal (interpretabilidad visual)
+        # ------------------------------------------------------------------
         features = list(contributions.keys())
         values = list(contributions.values())
-        colors = ['#ff4b4b' if x > 0 else '#1e88e5' for x in values] # Rojo vs Azul
+        colors = ['#ff4b4b' if v > 0 else '#1e88e5' for v in values]
 
-        # --- CAMBIO AQUÍ: AUMENTAMOS EL TAMAÑO DE LA FIGURA ---
-        # Antes era (6, 4), ahora es (10, 6) para que sea más grande y legible.
-        plt.figure(figsize=(8, 6)) 
-        
-        bars = plt.barh(features, values, color=colors, height=0.6)
+        plt.figure(figsize=(8, 6))
+        plt.barh(features, values, color=colors, height=0.6)
         plt.axvline(0, color='black', linewidth=0.8, linestyle='--')
-        # Aumentamos un poco el tamaño de las fuentes también
-        plt.title('Factores de Influencia (Interpretabilidad)', fontsize=12)
-        plt.xlabel('Impacto en el Riesgo (Izquierda=Seguro, Derecha=Fraude)', fontsize=10)
-        plt.yticks(fontsize=9)
-        
-        # Ajustes estéticos
-        plt.grid(axis='x', linestyle=':', alpha=0.5)
-        # Ajustamos los márgenes para que las etiquetas largas se lean bien
-        plt.subplots_adjust(left=0.25, right=0.95, top=0.9, bottom=0.15)
-        # plt.tight_layout() # A veces tight_layout corta etiquetas en este tamaño, subplots_adjust es mejor aquí
 
-        # 4. Guardar en Buffer
+        plt.title('Factores de Influencia en la Decisión', fontsize=12)
+        plt.xlabel('Impacto en el Riesgo (← Seguro | Fraude →)', fontsize=10)
+        plt.yticks(fontsize=9)
+
+        plt.grid(axis='x', linestyle=':', alpha=0.5)
+        plt.subplots_adjust(left=0.30, right=0.95, top=0.9, bottom=0.15)
+
         buf = io.BytesIO()
-        plt.savefig(buf, format='png', transparent=True, dpi=100) # DPI 100 para buena resolución web
+        plt.savefig(buf, format='png', transparent=True, dpi=100)
         buf.seek(0)
         image_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
         plt.close()
 
-        # 5. Generar Texto Explicativo (Natural Language Generation simple)
+        # ------------------------------------------------------------------
+        # 4. Generación de texto explicativo (alineado al FE real)
+        # ------------------------------------------------------------------
         text_parts = []
-        riesgo_detectado = False
+
         if monto > 1000:
-            text_parts.append(f"el monto es inusualmente alto (${monto})")
-            riesgo_detectado = True
-        if hora < 6 or hora > 22:
-            text_parts.append(f"la operación ocurre en horario nocturno ({hora}:00)")
-            riesgo_detectado = True
-        if antiguedad == 0:
-            text_parts.append("la cuenta es nueva (0 años de antigüedad)")
-            riesgo_detectado = True
-        
-        if riesgo_detectado:
-            explanation_text = "⚠️ Factores de Riesgo: El modelo ha elevado la alerta principalmente porque " + " y ".join(text_parts) + "."
+            text_parts.append("el monto es elevado en relación al comportamiento típico del sistema")
+
+        if hora in [23, 0, 1, 2, 3, 4, 5]:
+            text_parts.append(f"la operación ocurre en un patrón horario atípico ({hora}:00 hrs)")
+
+        if antiguedad <= 2:
+            text_parts.append("la cuenta pertenece a un grupo de clientes nuevos")
+
+        if text_parts:
+            explanation_text = (
+                "⚠️ Factores de Riesgo Detectados: "
+                "La alerta se genera principalmente porque "
+                + " y ".join(text_parts)
+                + ".\n\n"
+                "ℹ️ Nota: Esta explicación es una aproximación interpretativa "
+                "basada en patrones generales aprendidos por el modelo, "
+                "y no corresponde a los pesos matemáticos internos exactos."
+            )
         else:
-            explanation_text = "✅ Factores de Seguridad: El comportamiento parece normal. El monto es moderado y los patrones de tiempo/antigüedad no indican riesgo inmediato."
+            explanation_text = (
+                "✅ Factores de Seguridad: "
+                "La transacción presenta un patrón consistente con el comportamiento esperado "
+                "para clientes similares, sin señales claras de riesgo inmediato.\n\n"
+                "ℹ️ Nota: Esta explicación resume factores generales y no representa "
+                "directamente los cálculos internos del modelo."
+            )
 
         return image_base64, explanation_text
 
     except Exception as e:
-        print(f"Error generando SHAP: {e}")
+        print(f"Error generando explicación: {e}")
         return None, "No se pudo generar la explicación."
