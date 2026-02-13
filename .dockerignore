@@ -21,6 +21,4 @@ test_bruteforce.py
 
 # 3. Modelos
 *.pkl
-!modelo_fraude.pkl
-!fraude.pkl
-!fraude_fix.pkl
+!model_fraude.pkl
